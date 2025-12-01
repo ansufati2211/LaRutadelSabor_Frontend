@@ -1,338 +1,608 @@
+// js/admin.js
 
+// --- Funciones Auxiliares de Autenticación y API ---
+// (Incluidas para que este archivo sea autosuficiente)
+
+// Definir la URL base de tu API backend
+const API_BASE_URL = 'http://localhost:8080/api';
+// Asegúrate que el puerto sea correcto
+
+/**
+ * Función auxiliar para obtener el token JWT de localStorage
+ * @returns {string | null} El token JWT o null si no existe
+ */
+function getToken() {
+    return localStorage.getItem('token');
+}
+
+/**
+ * Función auxiliar para obtener los detalles del usuario de localStorage
+ * @returns {object | null} El objeto de usuario parseado o null
+ */
+function getUser() {
+    try {
+        return JSON.parse(localStorage.getItem('user'));
+    } catch (e) {
+        console.error("Error parsing user from localStorage", e);
+        return null;
+    }
+}
+
+/**
+ * Función auxiliar para realizar llamadas fetch con token de autorización
+ * @param {string} url - La URL completa del endpoint
+ * @param {object} options - Opciones de Fetch (method, body, etc.)
+ * @returns {Promise<Response>} La respuesta de fetch
+ */
+async function fetchWithAuth(url, options = {}) {
+    const token = getToken();
+    const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers, // Permite sobrescribir o añadir cabeceras
+    };
+
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+        const response = await fetch(url, {
+            ...options,
+            headers,
+        });
+        return response; // Devuelve la respuesta completa para manejarla después
+    } catch (error) {
+        console.error('Error en fetchWithAuth:', error);
+        throw error; // Propaga el error
+    }
+}
+
+/**
+ * Función global de Logout para el panel de admin
+ */
+function logout() {
+    console.log("Cerrando sesión de admin...");
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    // alert("Sesión cerrada."); // Opcional
+    window.location.href = 'login.html'; // Redirigir a login
+}
+
+// --- Comienzo del script de la página de Admin (Tu código) ---
 
 document.addEventListener('DOMContentLoaded', () => {
-  const API_URL = 'https://hamburguer-xmx8.onrender.com/api'; // URL base de la API.
-  let categories = []; // Array para almacenar las categorías.
-  let products = []; // Array para almacenar los productos.
-  let editingProductId = null; // ID del producto que se está editando (null si se está creando uno nuevo).
-  let editingCategoryId = null; // ID de la categoría que se está editando (null si se está creando una nueva).
+    // Variables globales
+    let categories = [];
+    let products = [];
+    let editingProductId = null;
+    let editingCategoryId = null;
 
-  // Obtiene el token y los datos del usuario del localStorage.
-  const token = localStorage.getItem('token');
-  const user = JSON.parse(localStorage.getItem('user'));
+    // Elementos del DOM
+    const categoryListUl = document.getElementById('category-list-ul');
+    const categoryForm = document.getElementById('categoryForm');
+    const categoryNameInput = document.getElementById('categoryName');
+    const categoryIconInput = document.getElementById('categoryIcon');
+    const categorySubmitBtn = categoryForm?.querySelector('button[type="submit"]');
+    const cancelCategoryBtn = document.getElementById('cancelCategoryBtn');
 
-  // --- Validación de Acceso (Solo Admin) ---
-  // Redirige al usuario a la página de login si no cumple los requisitos de administrador.
-  if (!token || !user || user.email !== 'test@test.com' || user.rol !== 'admin') {
-    alert('Acceso denegado. Solo el usuario con correo test@test.com y rol administrador puede acceder.');
-    window.location.href = 'login.html';
-    return; // Detiene la ejecución del script.
-  }
+    const productTableBody = document.getElementById('foodTableBody');
+    const productForm = document.getElementById('foodForm');
+    const productNameInput = document.getElementById('foodName');
+    const productDescInput = document.getElementById('foodDesc');
+    const productPriceInput = document.getElementById('foodPrice');
+    const productImageInput = document.getElementById('foodImage');
+    const productCategorySelect = document.getElementById('foodCategory');
+    const productStockInput = document.getElementById('foodStock'); // **Asegúrate que exista en admin.html**
+    const productSubmitBtn = productForm?.querySelector('button[type="submit"]');
+    const cancelProductBtn = document.getElementById('cancelBtn');
 
-  // Configura los encabezados de autorización para todas las solicitudes a la API.
-  const authHeader = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`
-  };
+    // Loader/Error elements (opcional, añade divs con estos IDs a tu HTML)
+    const loaderElement = document.getElementById('admin-loader');
+    const errorElement = document.getElementById('admin-error');
 
-  // --- Funciones de Carga Inicial ---
-  /**
-   * Carga categorías y productos desde la API de forma asíncrona.
-   * Actualiza las variables `categories` y `products`.
-   */
-  async function fetchData() {
-    try {
-      // Realiza peticiones concurrentes para categorías y productos.
-      const [catRes, prodRes] = await Promise.all([
-        fetch(`${API_URL}/categories`),
-        fetch(`${API_URL}/products`)
-      ]);
-
-      const catData = await catRes.json();
-      const prodData = await prodRes.json();
-
-      // Si las respuestas son exitosas, actualiza los arrays de datos.
-      if (catData.success) categories = catData.data;
-      if (prodData.success) products = prodData.data;
-
-      renderAll(); // Vuelve a renderizar todas las secciones de la interfaz.
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      alert('No se pudieron cargar los datos del servidor.');
-    }
-  }
-
-  /**
-   * Renderiza todas las secciones de la interfaz de administración.
-   */
-  function renderAll() {
-    renderCategoryList(); // Lista de categorías.
-    renderProductTable(); // Tabla de productos.
-    updateCategoryDropdown(); // Dropdown de categorías en el formulario de productos.
-  }
-
-  // --- Gestión de Productos ---
-  /**
-   * Renderiza la tabla de productos en la interfaz.
-   */
-  function renderProductTable() {
-    const tbody = document.getElementById('foodTableBody');
-    tbody.innerHTML = ''; // Limpia la tabla antes de renderizar.
-
-    // Itera sobre cada producto y crea una fila en la tabla.
-    products.forEach(product => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${product.nombre}</td>
-        <td>${product.descripcion}</td>
-        <td>S/${product.precio.toFixed(2)}</td>
-        <td><img src="${product.imagen}" alt="${product.nombre}" style="width:60px;height:40px;object-fit:cover;" onerror="this.style.display='none'"></td>
-        <td>
-        <button class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i> Editar</button>
-        <button class="btn btn-sm btn-danger"><i class="bi bi-trash"></i> Eliminar</button>
-        </td>
-      `;
-      // Asigna eventos a los botones de Editar y Eliminar.
-      tr.querySelector('.btn-warning').addEventListener('click', () => populateProductForm(product));
-      tr.querySelector('.btn-danger').addEventListener('click', () => deleteProduct(product._id));
-      tbody.appendChild(tr);
-    });
-  }
-
-  /**
-   * Maneja el envío del formulario de productos (creación o actualización).
-   */
-  async function handleProductFormSubmit(e) {
-    e.preventDefault(); // Evita el comportamiento por defecto del formulario.
-
-    // Recolecta los datos del formulario.
-    const productData = {
-      nombre: document.getElementById('foodName').value.trim(),
-      descripcion: document.getElementById('foodDesc').value.trim(),
-      precio: parseFloat(document.getElementById('foodPrice').value),
-      imagen: document.getElementById('foodImage').value.trim(),
-      categoria: document.getElementById('foodCategory').value,
-    };
-
-    // Validación básica de campos obligatorios.
-    if (!productData.nombre || !productData.precio || !productData.categoria) {
-      return alert('Nombre, precio y categoría son obligatorios.');
+    // Validar elementos esenciales
+    if (!categoryListUl || !categoryForm || !productTableBody || !productForm || !productCategorySelect) {
+        showAdminError("Error crítico: Faltan elementos HTML esenciales para el panel de administración.");
+        return;
     }
 
-    try {
-      let response;
-      // Determina si se está editando o creando un producto.
-      if (editingProductId) {
-        // Petición PUT para actualizar un producto existente.
-        response = await fetch(`${API_URL}/products/${editingProductId}`, {
-          method: 'PUT',
-          headers: authHeader,
-          body: JSON.stringify(productData)
-        });
-      } else {
-        // Petición POST para crear un nuevo producto.
-        response = await fetch(`${API_URL}/products`, {
-          method: 'POST',
-          headers: authHeader,
-          body: JSON.stringify(productData)
-        });
-      }
-      const result = await response.json();
-      if (result.success) {
-        await fetchData(); // Recarga los datos para actualizar la interfaz.
-        resetProductForm(); // Limpia el formulario.
-      } else {
-        alert(`Error: ${result.error || result.msg}`);
-      }
-    } catch (error) {
-      console.error('Error saving product:', error);
-      alert('Error de conexión al guardar el producto.');
-    }
-  }
+    // --- Validación de Acceso (MODIFICADO: Basado en Roles) ---
+    const token = getToken();
+    const user = getUser();
+    let userRole = null;
 
-  /**
-   * Elimina un producto de la base de datos.
-   * @param {string} id - El ID del producto a eliminar.
-   */
-  async function deleteProduct(id) {
-    if (confirm('¿Seguro que deseas eliminar este producto?')) {
-      try {
-        const response = await fetch(`${API_URL}/products/${id}`, {
-          method: 'DELETE',
-          headers: authHeader
-        });
-        const result = await response.json();
-        if (result.success) {
-          await fetchData(); // Recarga los datos.
-        } else {
-          alert(`Error: ${result.error || result.msg}`);
+    // Extraer rol (ajusta según cómo lo guardes en localStorage desde login.js)
+    if (user && user.rol && user.rol.name) { // Si el objeto Rol viene anidado
+        userRole = user.rol.name.replace("ROLE_", "");
+    } else if (user && user.roles) { // Si viene como array de strings o de objetos authority
+        if (user.roles.includes("ROLE_ADMIN") || user.roles.some(r => r.authority === "ROLE_ADMIN")) {
+            userRole = "ADMIN";
         }
-      } catch (error) {
-        console.error('Error deleting product:', error);
-        alert('Error de conexión al eliminar.');
-      }
-    }
-  }
-
-  /**
-   * Rellena el formulario de productos con los datos de un producto para edición.
-   * @param {object} product - El objeto producto con los datos a cargar.
-   */
-  function populateProductForm(product) {
-    document.getElementById('foodName').value = product.nombre;
-    document.getElementById('foodDesc').value = product.descripcion;
-    document.getElementById('foodPrice').value = product.precio;
-    document.getElementById('foodImage').value = product.imagen;
-    document.getElementById('foodCategory').value = product.categoria._id || product.categoria; // Maneja si categoria es un objeto o solo un ID.
-    editingProductId = product._id; // Establece el ID del producto que se está editando.
-    // Cambia el texto del botón del formulario y muestra el botón de cancelar.
-    document.querySelector('#foodForm button[type="submit"]').textContent = 'Actualizar Producto';
-    document.getElementById('cancelBtn').style.display = 'inline-block';
-  }
-
-  /**
-   * Restablece el formulario de productos a su estado inicial.
-   */
-  function resetProductForm() {
-    document.getElementById('foodForm').reset(); // Limpia todos los campos del formulario.
-    editingProductId = null; // Resetea el ID de edición.
-    // Restaura el texto del botón y oculta el botón de cancelar.
-    document.querySelector('#foodForm button[type="submit"]').textContent = 'Agregar Producto';
-    document.getElementById('cancelBtn').style.display = 'none';
-  }
-
-  // --- Gestión de Categorías ---
-  /**
-   * Renderiza la lista de categorías en la interfaz.
-   */
-  function renderCategoryList() {
-    const ul = document.getElementById('category-list-ul');
-    ul.innerHTML = ''; // Limpia la lista.
-
-    // Itera sobre cada categoría y crea un elemento de lista.
-    categories.forEach(cat => {
-      const li = document.createElement('li');
-      li.className = 'list-group-item d-flex justify-content-between align-items-center';
-      li.innerHTML = `
-        ${cat.icono} ${cat.nombre}
-        <div>
-          <button class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i></button>
-          <button class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
-        </div>`;
-      // Asigna eventos a los botones de Editar y Eliminar.
-      li.querySelector('.btn-warning').addEventListener('click', () => populateCategoryForm(cat));
-      li.querySelector('.btn-danger').addEventListener('click', () => deleteCategory(cat._id));
-      ul.appendChild(li);
-    });
-  }
-
-  /**
-   * Maneja el envío del formulario de categorías (creación o actualización).
-   */
-  async function handleCategoryFormSubmit(e) {
-    e.preventDefault(); // Evita el comportamiento por defecto del formulario.
-
-    // Recolecta los datos del formulario.
-    const categoryData = {
-      nombre: document.getElementById('categoryName').value.trim(),
-      icono: document.getElementById('categoryIcon').value.trim()
-    };
-
-    // Validación básica de campos obligatorios.
-    if (!categoryData.nombre || !categoryData.icono) {
-      return alert('Nombre e ícono son obligatorios para la categoría.');
+        // Podrías añadir lógica para otros roles si tuvieran acceso parcial
     }
 
-    try {
-      let response;
-      // Determina si se está editando o creando una categoría.
-      if (editingCategoryId) {
-        // Petición PUT para actualizar una categoría existente.
-        response = await fetch(`${API_URL}/categories/${editingCategoryId}`, {
-          method: 'PUT',
-          headers: authHeader,
-          body: JSON.stringify(categoryData)
-        });
-      } else {
-        // Petición POST para crear una nueva categoría.
-        response = await fetch(`${API_URL}/categories`, {
-          method: 'POST',
-          headers: authHeader,
-          body: JSON.stringify(categoryData)
-        });
-      }
-      const result = await response.json();
-      if (result.success) {
-        await fetchData(); // Recarga los datos.
-        resetCategoryForm(); // Limpia el formulario.
-      } else {
-        alert(`Error: ${result.error || result.msg}`);
-      }
-    } catch (error) {
-      console.error('Error saving category:', error);
-      alert('Error de conexión al guardar la categoría.');
+    if (!token || userRole !== 'ADMIN') {
+        alert('Acceso denegado. Solo usuarios administradores pueden acceder.');
+        localStorage.removeItem('token'); // Limpiar credenciales inválidas
+        localStorage.removeItem('user');
+        window.location.href = 'login.html';
+        return;
     }
-  }
+    console.log("Acceso de Administrador verificado.");
 
-  /**
-   * Elimina una categoría y sus productos asociados de la base de datos.
-   * @param {string} id - El ID de la categoría a eliminar.
-   */
-  async function deleteCategory(id) {
-    if (confirm('¿Seguro? Se eliminará la categoría y TODOS sus productos.')) {
-      try {
-        const response = await fetch(`${API_URL}/categories/${id}`, {
-          method: 'DELETE',
-          headers: authHeader
-        });
-        const result = await response.json();
-        if (result.success) {
-          await fetchData(); // Recarga los datos.
-        } else {
-          alert(`Error: ${result.error || result.msg}`);
+    // --- Funciones Loader/Error (Implementa la parte visual) ---
+    function showAdminLoader(message = "Procesando...") {
+        if (loaderElement) {
+            loaderElement.textContent = message;
+            loaderElement.style.display = 'block';
         }
-      } catch (error) {
-        console.error('Error deleting category:', error);
-        alert('Error de conexión al eliminar.');
-      }
+        if (errorElement) errorElement.style.display = 'none'; // Ocultar errores previos
+        console.log(message);
     }
-  }
+    function hideAdminLoader() {
+        if (loaderElement) loaderElement.style.display = 'none';
+    }
+    function showAdminError(message) {
+        if (errorElement) {
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+        console.error(message);
+        // Considera si usar alert es adecuado o mejor mostrar en 'errorElement'
+        // alert(message);
+    }
+    function clearAdminError() {
+        if (errorElement) errorElement.style.display = 'none';
+    }
 
-  /**
-   * Rellena el formulario de categorías con los datos de una categoría para edición.
-   * @param {object} category - El objeto categoría con los datos a cargar.
-   */
-  function populateCategoryForm(category) {
-    document.getElementById('categoryName').value = category.nombre;
-    document.getElementById('categoryIcon').value = category.icono;
-    editingCategoryId = category._id; // Establece el ID de la categoría que se está editando.
-    // Cambia el texto del botón del formulario y muestra el botón de cancelar.
-    document.querySelector('#categoryForm button[type="submit"]').innerHTML = '<i class="bi bi-pencil-fill me-1"></i>Actualizar Categoría';
-    document.getElementById('cancelCategoryBtn').style.display = 'inline-block';
-  }
+    // --- Funciones de Carga Inicial ---
+    /**
+     * MODIFICADO: Carga categorías y productos desde endpoints de admin del backend Spring Boot.
+     */
+    async function fetchData() {
+        showAdminLoader("Cargando categorías y productos...");
+        clearAdminError(); // Limpiar errores previos
 
-  /**
-   * Restablece el formulario de categorías a su estado inicial.
-   */
-  function resetCategoryForm() {
-    document.getElementById('categoryForm').reset(); // Limpia los campos del formulario.
-    editingCategoryId = null; // Resetea el ID de edición.
-    // Restaura el texto del botón y oculta el botón de cancelar.
-    document.querySelector('#categoryForm button[type="submit"]').innerHTML = '<i class="bi bi-plus-circle me-1"></i>Agregar Categoría';
-    document.getElementById('cancelCategoryBtn').style.display = 'none';
-  }
+        try {
+            const [catRes, prodRes] = await Promise.all([
+                fetchWithAuth(`${API_BASE_URL}/categorias/admin/all`), // Usa fetchWithAuth
+                fetchWithAuth(`${API_BASE_URL}/productos/admin/all`)  // Usa fetchWithAuth
+            ]);
 
-  /**
-   * Actualiza las opciones del dropdown de categorías en el formulario de productos.
-   */
-  function updateCategoryDropdown() {
-    const categorySelect = document.getElementById('foodCategory');
-    categorySelect.innerHTML = '<option value="" disabled selected>Seleccionar categoría</option>'; // Limpia y añade la opción predeterminada.
-    categories.forEach(cat => {
-      const option = document.createElement('option');
-      option.value = cat._id;
-      option.textContent = cat.nombre;
-      categorySelect.appendChild(option);
-    });
-  }
+            // Función auxiliar para manejar errores de respuesta
+            async function handleResponseError(response, entityName) {
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: `Error ${response.status}: ${response.statusText}` }));
+                    throw new Error(`Error al cargar ${entityName}: ${errorData.error || response.statusText}`);
+                }
+                return response.json();
+            }
 
-  // --- Inicialización y Event Listeners ---
-  // Asocia las funciones a los eventos de submit y click de los formularios y botones.
-  document.getElementById('foodForm').addEventListener('submit', handleProductFormSubmit);
-  document.getElementById('cancelBtn').addEventListener('click', resetProductForm);
-  document.getElementById('categoryForm').addEventListener('submit', handleCategoryFormSubmit);
-  document.getElementById('cancelCategoryBtn').addEventListener('click', resetCategoryForm);
+            // Procesar respuestas
+            categories = await handleResponseError(catRes, "categorías");
+            products = await handleResponseError(prodRes, "productos");
 
-  // Carga los datos iniciales al cargar la página.
-  fetchData();
+            console.log("Categorías cargadas:", categories);
+            console.log("Productos cargados:", products);
+
+            renderAll(); // Renderizar UI
+
+        } catch (error) {
+            console.error('Error fetching admin data:', error);
+            showAdminError(`No se pudieron cargar los datos: ${error.message}`);
+        } finally {
+            hideAdminLoader();
+        }
+    }
+
+    /** Renderiza todas las secciones */
+    function renderAll() {
+        renderCategoryList();
+        renderProductTable();
+        updateCategoryDropdown();
+    }
+
+    // --- Gestión de Productos ---
+    /**
+     * MODIFICADO: Renderiza tabla de productos, usa 'id' y campos Java, marca anulados.
+     */
+    function renderProductTable() {
+        if (!productTableBody) return;
+        productTableBody.innerHTML = '';
+
+        if (!products || products.length === 0) {
+            productTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-4">No hay productos registrados.</td></tr>'; // Colspan 6
+            return;
+        }
+
+        products.forEach(product => {
+            const tr = document.createElement('tr');
+            if (product.audAnulado) {
+                tr.classList.add('opacity-50', 'bg-gray-100', 'anulado'); // Clase 'anulado' para CSS
+                tr.title = "Este producto está anulado (no visible para clientes)";
+            }
+
+            // Usar nombres de campo de la entidad Java (`producto`, `descripcion`, `precio`, `stock`, `imagen`, `id`)
+            tr.innerHTML = `
+                <td>${product.producto || 'N/A'}</td>
+                <td class="text-sm text-gray-600">${product.descripcion || '-'}</td>
+                <td>S/ ${(product.precio || 0).toFixed(2)}</td>
+                <td>${product.stock !== undefined ? product.stock : 'N/A'}</td>
+                <td><img src="${product.imagen || 'icon/logo.png'}" alt="${product.producto || ''}" class="admin-img-preview" onerror="this.src='icon/logo.png';"></td>
+                <td>
+                    <button class="btn btn-sm btn-warning me-1 action-edit-product" data-id="${product.id}" title="Editar ${product.producto}">
+                        <i class="bi bi-pencil"></i> Editar
+                    </button>
+                    <button class="btn btn-sm ${product.audAnulado ? 'btn-success' : 'btn-danger'} action-toggle-product" data-id="${product.id}" title="${product.audAnulado ? 'Reactivar' : 'Eliminar'} ${product.producto}">
+                        <i class="bi ${product.audAnulado ? 'bi-check-circle' : 'bi-trash'}"></i> ${product.audAnulado ? 'Activar' : 'Eliminar'}
+                    </button>
+                </td>
+            `;
+            productTableBody.appendChild(tr);
+        });
+    }
+
+    /**
+     * MODIFICADO: Maneja submit del form de productos (POST/PUT a endpoints admin).
+     */
+    async function handleProductFormSubmit(e) {
+        e.preventDefault();
+        showAdminLoader("Guardando producto...");
+        clearAdminError();
+
+        const categoryId = productCategorySelect.value;
+        const productData = {
+            producto: productNameInput.value.trim(),
+            descripcion: productDescInput.value.trim(),
+            precio: parseFloat(productPriceInput.value),
+            stock: parseInt(productStockInput.value, 10),
+            imagen: productImageInput.value.trim(),
+            categoria: categoryId ? { id: parseInt(categoryId, 10) } : null,
+            audAnulado: false // Siempre activo al guardar/actualizar desde el form
+        };
+
+        // Validación
+        if (!productData.producto || isNaN(productData.precio) || productData.precio < 0 || !productData.categoria || isNaN(productData.stock) || productData.stock < 0) {
+            hideAdminLoader();
+            showAdminError('Nombre, Precio válido (>=0), Stock válido (>=0) y Categoría son obligatorios.');
+            return;
+        }
+
+        const method = editingProductId ? 'PUT' : 'POST';
+        const url = editingProductId
+            ? `${API_BASE_URL}/productos/admin/${editingProductId}`
+            : `${API_BASE_URL}/productos/admin`;
+
+        try {
+            const response = await fetchWithAuth(url, {
+                method: method,
+                body: JSON.stringify(productData)
+            });
+            const result = await response.json();
+
+            if (response.ok) {
+                await fetchData();
+                resetProductForm();
+                alert(`Producto ${editingProductId ? 'actualizado' : 'creado'} correctamente.`);
+            } else {
+                throw new Error(result.error || `Error ${response.status}`);
+            }
+        } catch (error) {
+            console.error(`Error en ${method} producto:`, error);
+            showAdminError(`Error al guardar el producto: ${error.message}`);
+        } finally {
+            hideAdminLoader();
+        }
+    }
+
+    /**
+     * MODIFICADO: Borrado lógico (DELETE) o reactivación (PUT) de un producto.
+     */
+    async function toggleProductStatus(id, currentStatus) {
+        const action = currentStatus ? "reactivar" : "eliminar (lógicamente)";
+        const confirmMessage = currentStatus
+            ? `¿Seguro que deseas ${action} este producto?`
+            : `¿Seguro que deseas ${action} este producto? No será visible.`;
+
+        if (confirm(confirmMessage)) {
+            showAdminLoader(`${currentStatus ? "Reactivando" : "Eliminando"} producto...`);
+            clearAdminError();
+            try {
+                let response;
+                if (currentStatus) { // Reactivar -> PUT con audAnulado=false
+                    // Busca el producto localmente para obtener todos sus datos
+                    const productToReactivate = products.find(p => p.id === id);
+                    if (!productToReactivate) throw new Error("Producto no encontrado para reactivar.");
+                    productToReactivate.audAnulado = false; // Cambia el estado
+                    // Necesitamos enviar el objeto Categoria como {id: ...}
+                    const categoryPayload = productToReactivate.categoria ? { id: productToReactivate.categoria.id } : null;
+
+                    response = await fetchWithAuth(`${API_BASE_URL}/productos/admin/${id}`, {
+                        method: 'PUT',
+                        // Enviar solo los campos necesarios o el objeto completo adaptado
+                        body: JSON.stringify({
+                            ...productToReactivate, // Incluye todos los campos
+                            categoria: categoryPayload // Asegura formato correcto de categoría
+                        })
+                    });
+                } else { // Anular -> DELETE (backend hace borrado lógico)
+                    response = await fetchWithAuth(`${API_BASE_URL}/productos/admin/${id}`, {
+                        method: 'DELETE'
+                    });
+                }
+
+                if (response.ok || response.status === 204) { // DELETE puede devolver 204
+                    await fetchData(); // Recargar datos
+                    alert(`Producto ${action} correctamente.`);
+                } else {
+                    const errorData = await response.json().catch(() => ({ error: `Error ${response.status}` }));
+                    throw new Error(errorData.error || `Error del servidor al ${action}.`);
+                }
+            } catch (error) {
+                console.error(`Error al ${action} producto:`, error);
+                showAdminError(`Error al ${action} el producto: ${error.message}`);
+            } finally {
+                hideAdminLoader();
+            }
+        }
+    }
+
+    /**
+     * MODIFICADO: Rellena form de producto usando 'id' y campos Java.
+     */
+    function populateProductForm(product) {
+        if (!product) return;
+        productNameInput.value = product.producto || '';
+        productDescInput.value = product.descripcion || '';
+        productPriceInput.value = product.precio || 0;
+        productImageInput.value = product.imagen || '';
+        productStockInput.value = product.stock !== undefined ? product.stock : 0;
+        const categoryId = product.categoria ? product.categoria.id : null;
+        productCategorySelect.value = categoryId || '';
+
+        editingProductId = product.id; // Usar 'id'
+        if (productSubmitBtn) productSubmitBtn.textContent = 'Actualizar Producto';
+        if (cancelProductBtn) cancelProductBtn.style.display = 'inline-block';
+        productForm.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    /** Restablece form de producto */
+    function resetProductForm() {
+        if (productForm) productForm.reset();
+        editingProductId = null;
+        if (productSubmitBtn) productSubmitBtn.textContent = 'Agregar Producto';
+        if (cancelProductBtn) cancelProductBtn.style.display = 'none';
+        productCategorySelect.value = "";
+    }
+
+    // --- Gestión de Categorías ---
+    /**
+     * MODIFICADO: Renderiza lista de categorías, usa 'id' y campos Java, marca anuladas.
+     */
+    function renderCategoryList() {
+        if (!categoryListUl) return;
+        categoryListUl.innerHTML = '';
+
+        if (!categories || categories.length === 0) {
+            categoryListUl.innerHTML = '<li class="list-group-item text-center text-gray-500 py-3">No hay categorías.</li>';
+            return;
+        }
+
+        categories.forEach(cat => {
+            const li = document.createElement('li');
+            li.className = `list-group-item d-flex justify-content-between align-items-center ${cat.audAnulado ? 'opacity-50 bg-light anulado' : ''}`;
+            if (cat.audAnulado) li.title = "Categoría anulada";
+
+            // Usar campos de entidad Java ('id', 'categoria', 'icono')
+            li.innerHTML = `
+                <span>${cat.icono || '📁'} ${cat.categoria || 'N/A'}</span>
+                <div>
+                    <button class="btn btn-sm btn-warning me-1 action-edit-category" data-id="${cat.id}" title="Editar ${cat.categoria}">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm ${cat.audAnulado ? 'btn-success' : 'btn-danger'} action-toggle-category" data-id="${cat.id}" title="${cat.audAnulado ? 'Reactivar' : 'Eliminar'} ${cat.categoria}">
+                        <i class="bi ${cat.audAnulado ? 'bi-check-circle' : 'bi-trash'}"></i>
+                    </button>
+                </div>`;
+            categoryListUl.appendChild(li);
+        });
+    }
+
+    /**
+     * MODIFICADO: Maneja submit del form de categorías (POST/PUT a endpoints admin).
+     */
+    async function handleCategoryFormSubmit(e) {
+        e.preventDefault();
+        showAdminLoader("Guardando categoría...");
+        clearAdminError();
+
+        const categoryData = {
+            // Usar nombres entidad Java ('categoria', 'icono')
+            categoria: categoryNameInput.value.trim(),
+            icono: categoryIconInput.value.trim(),
+            audAnulado: false
+        };
+
+        if (!categoryData.categoria || !categoryData.icono) {
+            hideAdminLoader();
+            return showAdminError('Nombre e ícono son obligatorios.');
+        }
+
+        const method = editingCategoryId ? 'PUT' : 'POST';
+        const url = editingCategoryId
+            ? `${API_BASE_URL}/categorias/admin/${editingCategoryId}`
+            : `${API_BASE_URL}/categorias/admin`;
+
+        try {
+            const response = await fetchWithAuth(url, {
+                method: method,
+                body: JSON.stringify(categoryData)
+            });
+            const result = await response.json();
+
+            if (response.ok) {
+                await fetchData();
+                resetCategoryForm();
+                alert(`Categoría ${editingCategoryId ? 'actualizada' : 'creada'} correctamente.`);
+            } else {
+                throw new Error(result.error || `Error ${response.status}`);
+            }
+        } catch (error) {
+            console.error(`Error en ${method} categoría:`, error);
+            // Manejar error de nombre duplicado
+            if (error.message && error.message.toLowerCase().includes('constraint')) {
+                showAdminError(`Error: Ya existe una categoría con el nombre "${categoryData.categoria}".`);
+            } else {
+                showAdminError(`Error al guardar la categoría: ${error.message}`);
+            }
+        } finally {
+            hideAdminLoader();
+        }
+    }
+
+    /**
+     * MODIFICADO: Borrado lógico (DELETE) o reactivación (PUT) de categoría.
+     */
+    async function toggleCategoryStatus(id, currentStatus) {
+        const action = currentStatus ? "reactivar" : "eliminar (lógicamente)";
+        const confirmMessage = currentStatus
+            ? `¿Seguro que deseas ${action} esta categoría?`
+            : `¿Seguro que deseas ${action} esta categoría? Los productos asociados podrían necesitar reasignación.`;
+
+        if (confirm(confirmMessage)) {
+            showAdminLoader(`${currentStatus ? "Reactivando" : "Eliminando"} categoría...`);
+            clearAdminError();
+            try {
+                let response;
+                if (currentStatus) { // Reactivar -> PUT
+                    const categoryToReactivate = categories.find(c => c.id === id);
+                    if (!categoryToReactivate) throw new Error("Categoría no encontrada.");
+                    categoryToReactivate.audAnulado = false;
+                    response = await fetchWithAuth(`${API_BASE_URL}/categorias/admin/${id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify(categoryToReactivate)
+                    });
+                } else { // Anular -> DELETE
+                    response = await fetchWithAuth(`${API_BASE_URL}/categorias/admin/${id}`, {
+                        method: 'DELETE'
+                    });
+                }
+
+                if (response.ok || response.status === 204) {
+                    await fetchData();
+                    alert(`Categoría ${action} correctamente.`);
+                } else {
+                    const errorData = await response.json().catch(() => ({ error: `Error ${response.status}` }));
+                    // Manejar error si está en uso (ej. 409 Conflict)
+                    if (response.status === 409) {
+                        throw new Error(errorData.error || "No se puede eliminar, la categoría está en uso.");
+                    }
+                    throw new Error(errorData.error || `Error del servidor al ${action}.`);
+                }
+            } catch (error) {
+                console.error(`Error al ${action} categoría:`, error);
+                showAdminError(`Error al ${action} la categoría: ${error.message}`);
+            } finally {
+                hideAdminLoader();
+            }
+        }
+    }
+
+    /**
+     * MODIFICADO: Rellena form de categoría usando 'id' y campos Java.
+     */
+    function populateCategoryForm(category) {
+        if (!category) return;
+        categoryNameInput.value = category.categoria || ''; // Campo 'categoria'
+        categoryIconInput.value = category.icono || '';
+        editingCategoryId = category.id; // Usar 'id'
+
+        if (categorySubmitBtn) categorySubmitBtn.innerHTML = '<i class="bi bi-pencil-fill me-1"></i>Actualizar Categoría';
+        if (cancelCategoryBtn) cancelCategoryBtn.style.display = 'inline-block';
+        categoryForm.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    /** Restablece form de categoría */
+    function resetCategoryForm() {
+        if (categoryForm) categoryForm.reset();
+        editingCategoryId = null;
+        if (categorySubmitBtn) categorySubmitBtn.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Agregar Categoría';
+        if (cancelCategoryBtn) cancelCategoryBtn.style.display = 'none';
+    }
+
+    /**
+     * MODIFICADO: Actualiza dropdown de categorías mostrando solo activas.
+     */
+    function updateCategoryDropdown() {
+        if (!productCategorySelect) return;
+        const currentSelectedValue = productCategorySelect.value;
+        productCategorySelect.innerHTML = '<option value="" disabled>Seleccionar categoría...</option>';
+        categories.forEach(cat => {
+            if (!cat.audAnulado) { // Solo activas
+                const option = document.createElement('option');
+                option.value = cat.id; // Usar 'id'
+                option.textContent = cat.categoria || 'N/A'; // Usar 'categoria'
+                productCategorySelect.appendChild(option);
+            }
+        });
+        // Restaurar selección si es posible
+        if (currentSelectedValue && categories.some(c => !c.audAnulado && c.id == currentSelectedValue)) {
+            productCategorySelect.value = currentSelectedValue;
+        } else {
+            productCategorySelect.value = "";
+        }
+    }
+
+    // --- Inicialización y Event Listeners ---
+    if (productForm) productForm.addEventListener('submit', handleProductFormSubmit);
+    if (cancelProductBtn) cancelProductBtn.addEventListener('click', resetProductForm);
+    if (categoryForm) categoryForm.addEventListener('submit', handleCategoryFormSubmit);
+    if (cancelCategoryBtn) cancelCategoryBtn.addEventListener('click', resetCategoryForm);
+
+    // Event delegation para botones editar/eliminar/activar
+    if (productTableBody) {
+        productTableBody.addEventListener('click', (e) => {
+            const editBtn = e.target.closest('.action-edit-product[data-id]');
+            const toggleBtn = e.target.closest('.action-toggle-product[data-id]');
+            if (editBtn) {
+                const id = parseInt(editBtn.dataset.id, 10);
+                const item = products.find(p => p.id === id);
+                if (item) populateProductForm(item);
+            } else if (toggleBtn) {
+                const id = parseInt(toggleBtn.dataset.id, 10);
+                const item = products.find(p => p.id === id);
+                if (item) toggleProductStatus(id, item.audAnulado);
+            }
+        });
+    }
+    if (categoryListUl) {
+        categoryListUl.addEventListener('click', (e) => {
+            const editBtn = e.target.closest('.action-edit-category[data-id]');
+            const toggleBtn = e.target.closest('.action-toggle-category[data-id]');
+            if (editBtn) {
+                const id = parseInt(editBtn.dataset.id, 10);
+                const item = categories.find(c => c.id === id);
+                if (item) populateCategoryForm(item);
+            } else if (toggleBtn) {
+                const id = parseInt(toggleBtn.dataset.id, 10);
+                const item = categories.find(c => c.id === id);
+                if (item) toggleCategoryStatus(id, item.audAnulado);
+            }
+        });
+    }
+
+    // Carga inicial de datos
+    fetchData();
+
+    // Listener para logout (asegúrate que el botón tenga el ID correcto)
+    const logoutButton = document.getElementById('admin-logout-button');
+    if (logoutButton) {
+        logoutButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (confirm("¿Seguro que deseas cerrar sesión de administrador?")) {
+                logout(); // Llama a la función global definida al inicio
+            }
+        });
+    }
+
 });
