@@ -1,7 +1,7 @@
 // js/index.js
 
 // NUEVO: Definir la URL base de tu API backend
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = 'https://larutadelsaborbackend-production.up.railway.app/api';
 // Asegúrate que el puerto sea correcto
 
 document.addEventListener('DOMContentLoaded', () => {

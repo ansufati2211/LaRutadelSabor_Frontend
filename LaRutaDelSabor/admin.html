@@ -285,6 +285,51 @@
       </div>
     </div>
   </div>
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="bi bi-person-badge-fill me-2"></i>Registrar Nuevo Empleado</h5>
+    </div>
+    <div class="card-body">
+        <form id="employeeForm">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="empNombre" class="form-label">Nombre</label>
+                    <input type="text" class="form-control" id="empNombre" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="empApellido" class="form-label">Apellido</label>
+                    <input type="text" class="form-control" id="empApellido" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="empCorreo" class="form-label">Correo (Usuario)</label>
+                    <input type="email" class="form-control" id="empCorreo" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="empPass" class="form-label">Contraseña</label>
+                    <input type="password" class="form-control" id="empPass" required minlength="6">
+                </div>
+                <div class="col-md-6">
+                    <label for="empTelefono" class="form-label">Teléfono</label>
+                    <input type="tel" class="form-control" id="empTelefono" required pattern="[0-9]{9}">
+                </div>
+                <div class="col-md-6">
+                    <label for="empRol" class="form-label">Rol Asignado</label>
+                    <select class="form-select" id="empRol" required>
+                        <option value="" selected disabled>Seleccionar rol...</option>
+                        <option value="VENDEDOR">Vendedor (POS)</option>
+                        <option value="DELIVERY">Delivery (Motorizado)</option>
+                        <option value="ADMIN">Administrador</option>
+                    </select>
+                </div>
+                <div class="col-12 text-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-person-plus-fill me-1"></i> Crear Usuario
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
 
     <link rel="stylesheet"
     href="https://www.gstatic.com/dialogflow-console/fast/df-messenger/prod/v1/themes/df-messenger-default.css">

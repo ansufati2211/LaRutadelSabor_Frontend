@@ -4,7 +4,7 @@
 // (Incluidas para que este archivo sea autosuficiente)
 
 // Definir la URL base de tu API backend
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = 'https://larutadelsaborbackend-production.up.railway.app/api';
 // Asegúrate que el puerto sea correcto
 
 /**
@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Cargar Menú (categorías y productos activos) y Órdenes (todas para admin/vendedor)
             const [menuRes, ordersRes] = await Promise.all([
                 fetchWithAuth(`${API_BASE_URL}/menu`),       // Endpoint público con activos
-                fetchWithAuth(`${API_BASE_URL}/admin/pedidos`) // Endpoint admin con todos (pedidos en lugar de pedido)
+                fetchWithAuth(`${API_BASE_URL}/pedidos`) // Endpoint admin con todos (pedidos en lugar de pedido)
             ]);
 
             async function handleResponseError(response, entityName) { /* ... (igual que en admin.js) ... */
@@ -734,7 +734,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // NUEVO: Función para recargar órdenes desde el backend
     async function fetchOrdenesActualizadas() {
         try {
-            const response = await fetchWithAuth(`${API_BASE_URL}/admin/pedidos`);
+            const response = await fetchWithAuth(`${API_BASE_URL}/pedidos`);
             if (!response.ok) throw new Error("No se pudieron recargar las órdenes");
             return await response.json();
         } catch (error) {
@@ -868,7 +868,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showAdminLoader("Cargando detalle...");
             try {
                 // Usar endpoint de admin para ver cualquier orden (asume permisos)
-                const response = await fetchWithAuth(`${API_BASE_URL}/admin/pedidos/${ordenId}`);
+                const response = await fetchWithAuth(`${API_BASE_URL}/pedidos/${ordenId}`);
                 if (!response.ok) throw new Error("Orden no encontrada en el servidor.");
                 ordenSeleccionada = await response.json();
                 mostrarDetalleOrden(ordenSeleccionada);

@@ -4,7 +4,7 @@
 // (Incluidas para que este archivo sea autosuficiente)
 
 // Definir la URL base de tu API backend
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = 'https://larutadelsaborbackend-production.up.railway.app/api';
 // Asegúrate que el puerto sea correcto
 
 /**
@@ -165,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const [catRes, prodRes] = await Promise.all([
-                fetchWithAuth(`${API_BASE_URL}/categorias/admin/all`), // Usa fetchWithAuth
+                fetchWithAuth(`${API_BASE_URL}/categorias`), // Usa fetchWithAuth
                 fetchWithAuth(`${API_BASE_URL}/productos/admin/all`)  // Usa fetchWithAuth
             ]);
 
@@ -587,6 +587,59 @@ document.addEventListener('DOMContentLoaded', () => {
                 const id = parseInt(toggleBtn.dataset.id, 10);
                 const item = categories.find(c => c.id === id);
                 if (item) toggleCategoryStatus(id, item.audAnulado);
+            }
+        });
+    }
+    // --- Lógica para Registrar Empleados ---
+    const employeeForm = document.getElementById('employeeForm');
+
+    if (employeeForm) {
+        employeeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Obtener botón para feedback visual
+            const btnSubmit = employeeForm.querySelector('button[type="submit"]');
+            const originalText = btnSubmit.innerHTML;
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Creando...';
+
+            const empleadoData = {
+                nombre: document.getElementById('empNombre').value.trim(),
+                apellido: document.getElementById('empApellido').value.trim(),
+                correo: document.getElementById('empCorreo').value.trim(),
+                contraseña: document.getElementById('empPass').value.trim(),
+                telefono: parseInt(document.getElementById('empTelefono').value.trim(), 10),
+                rol: document.getElementById('empRol').value // VENDEDOR, DELIVERY, ADMIN
+            };
+
+            try {
+                // Usamos fetchWithAuth porque el endpoint requiere rol ADMIN
+                const response = await fetchWithAuth(`${API_BASE_URL}/auth/register-employee`, {
+                    method: 'POST',
+                    body: JSON.stringify(empleadoData)
+                });
+
+                const contentType = response.headers.get("content-type");
+                let result;
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    result = await response.json();
+                } else {
+                    result = { message: await response.text() };
+                }
+
+                if (response.ok) {
+                    alert(`¡Éxito! ${result.message || result}`);
+                    employeeForm.reset();
+                } else {
+                    throw new Error(result.error || result.message || "Error al crear empleado");
+                }
+
+            } catch (error) {
+                console.error("Error creando empleado:", error);
+                alert(`Error: ${error.message}`);
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = originalText;
             }
         });
     }
