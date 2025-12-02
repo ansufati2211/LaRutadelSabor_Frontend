@@ -386,7 +386,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Usar los nombres de campo del DTO del backend (id, nombre, descripcion, precio, imagen)
             card.innerHTML = `
                 <img src="${producto.imagen || 'icon/logo.png'}" alt="${producto.nombre || 'Producto'}" loading="lazy" onerror="this.onerror=null;this.src='icon/logo.png';">
-                <h3>${producto.nombre || 'Nombre no disponible'}</h3>
+                <h3>${producto.nombre || producto.producto ||'Nombre no disponible'}</h3>
                 <p>${producto.descripcion || 'Sin descripción.'}</p>
                 <p class="precio">S/ ${(producto.precio || 0).toFixed(2)}</p>
                 `;
