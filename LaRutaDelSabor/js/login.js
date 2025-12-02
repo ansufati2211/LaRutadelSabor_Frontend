@@ -434,7 +434,7 @@ document.addEventListener("DOMContentLoaded", () => {
             apellido: apellidos,
             correo: email,
             contraseña: password, // El backend espera 'contraseña'
-            telefono: parseInt(telefono) // El backend espera 'telefono' como Integer
+            telefono: telefono // El backend espera 'telefono' como Integer
             // direccion: direccion, // Añadir si el backend lo acepta
         };
         console.log("Enviando registro:", requestBody);
