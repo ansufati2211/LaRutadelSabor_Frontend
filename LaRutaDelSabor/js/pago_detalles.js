@@ -421,61 +421,38 @@ document.addEventListener("DOMContentLoaded", () => {
     /**
      * MODIFICADO: Precarga datos del usuario desde backend (/api/clientes/me)
      */
-    async function fetchUserData() {
-        const token = getToken(); // Usa función global
-        if (!token) {
-            console.warn("Usuario no autenticado, no se pueden precargar datos.");
-            // Permitir que el usuario llene los campos manualmente
-            return;
-        }
+   async function fetchUserData() {
+    const token = getToken();
+    if (!token) return;
 
-        // Seleccionar inputs
-        const nombreInput = document.getElementById("nombre");
-        const apellidoInput = document.getElementById("apellido");
-        const correoInput = document.getElementById("correo");
-        const telefonoInputForm = document.getElementById("telefono"); // Evitar conflicto con variable global
+    try {
+        const response = await fetchWithAuth(`${API_BASE_URL}/clientes/me`);
+        if (response.ok) {
+            const userData = await response.json();
+            
+            // Llenar campos con protección contra nulos
+            const inputs = {
+                nombre: document.getElementById("nombre"),
+                apellido: document.getElementById("apellido"),
+                correo: document.getElementById("correo"),
+                telefono: document.getElementById("telefono")
+            };
 
-        // Habilitar campos por si acaso estaban deshabilitados
-        nombreInput.readOnly = false;
-        apellidoInput.readOnly = false;
-        correoInput.readOnly = false;
-        telefonoInputForm.readOnly = false;
-
-        try {
-            console.log("Intentando obtener datos del usuario...");
-            const response = await fetchWithAuth(`${API_BASE_URL}/clientes/me`); // Llama al endpoint del backend
-
-            if (response.ok) {
-                const userData = await response.json();
-                console.log("Datos del usuario recibidos:", userData);
-                // Rellenar campos usando los nombres de la entidad Cliente del backend
-                nombreInput.value = userData.nombre || "";
-                apellidoInput.value = userData.apellido || "";
-                correoInput.value = userData.correo || "";
-                telefonoInputForm.value = userData.telefono || ""; // Asume que 'telefono' es string en la entidad
-                // Podrías hacer los campos readonly si quieres que use los datos de su perfil
-                // nombreInput.readOnly = true;
-                // apellidoInput.readOnly = true;
-                // correoInput.readOnly = true;
-            } else {
-                console.error("Error al obtener datos del usuario:", response.status, response.statusText);
-                // Intentar cargar desde localStorage como fallback (si login.js lo guarda)
-                const localUser = getUser();
-                if (localUser) {
-                    nombreInput.value = localUser.nombre || ""; // Ajusta según lo que guardes en 'user'
-                    apellidoInput.value = localUser.apellido || "";
-                    correoInput.value = localUser.correo || localUser.email || "";
-                    telefonoInputForm.value = localUser.telefono || "";
-                } else {
-                    // Permitir llenado manual si falla todo
-                    console.warn("No se pudieron cargar datos del usuario ni del backend ni de localStorage.");
-                }
+            if(inputs.nombre) inputs.nombre.value = userData.nombre || "";
+            if(inputs.apellido) inputs.apellido.value = userData.apellido || "";
+            if(inputs.correo) inputs.correo.value = userData.correo || "";
+            
+            // Manejo especial para teléfono (puede venir como número o texto)
+            if(inputs.telefono && userData.telefono) {
+                 inputs.telefono.value = userData.telefono;
             }
-        } catch (error) {
-            console.error("Error en fetchUserData:", error);
-            // Permitir llenado manual si hay error de red
+        } else {
+            console.warn("No se pudieron cargar datos del usuario (Posible error de permisos o token vencido).");
         }
+    } catch (error) {
+        console.error("Error al conectar con el servidor:", error);
     }
+}
 
     /**
      * MODIFICADO: Actualiza subtotal, costo de envío y total. Prepara GPay si aplica.

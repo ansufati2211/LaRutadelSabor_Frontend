@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clearError();
         try {
             // Llama al endpoint de admin para obtener todos los pedidos
-            const response = await fetchWithAuth(`${API_BASE_URL}/admin/pedidos`);
+            const response = await fetchWithAuth(`${API_BASE_URL}/pedidos`);
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
@@ -405,7 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clearError();
         try {
             console.log(`📤 Cambiando estado de orden ${pedidoId} a "${nuevoEstadoBackend}"`);
-            const response = await fetchWithAuth(`${API_BASE_URL}/admin/pedidos/${pedidoId}/estado`, { // Llama al endpoint de admin
+            const response = await fetchWithAuth(`${API_BASE_URL}/pedidos/${pedidoId}/estado`, { // Llama al endpoint de admin
                 method: 'PUT',
                 body: JSON.stringify({
                     nuevoEstado: nuevoEstadoBackend,
