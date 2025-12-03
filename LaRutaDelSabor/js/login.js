@@ -291,7 +291,7 @@ document.addEventListener("DOMContentLoaded", () => {
             submitButton.textContent = "Ingresando..."; // Feedback visual
 
         }
-        console.log("Enviando al backend:", JSON.stringify({ correo: email, contraseña: password }));
+        console.log("Enviando al backend:", JSON.stringify({ correo: email, password: password }));
 
         try {
             // 1. Llamar al endpoint de login del backend
