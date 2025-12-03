@@ -299,7 +299,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 // Enviar 'correo' y 'contraseña' como espera el backend DTO
-                body: JSON.stringify({ correo: email, contraseña: password }),
+                body: JSON.stringify({ correo: email, password: password }),
             });
 
             const data = await response.json();
@@ -433,7 +433,7 @@ document.addEventListener("DOMContentLoaded", () => {
             nombre: nombre,
             apellido: apellidos,
             correo: email,
-            contraseña: password, // El backend espera 'contraseña'
+            password: password, // El backend espera 'contraseña'
             telefono: telefono // El backend espera 'telefono' como Integer
             // direccion: direccion, // Añadir si el backend lo acepta
         };
