@@ -243,7 +243,7 @@ function getGooglePaymentsClient() {
 const deepCopy = (obj) => JSON.parse(JSON.stringify(obj));
 
 // Se llama cuando la API de Google Pay está cargada
-function onGooglePayLoaded() {
+window.onGooglePayLoaded = function() {
     const googlePayClient = getGooglePaymentsClient();
     const readyToPayRequest = deepCopy(baseGooglePayRequest);
 
@@ -254,8 +254,7 @@ function onGooglePayLoaded() {
                 // El botón se renderizará dinámicamente si se selecciona tarjeta
             } else {
                 console.log('Google Pay no está disponible.');
-                // Ocultar opción o contenedor de Google Pay si no está disponible
-                const gpayOptionContainer = document.getElementById('gpay-option-container'); // Añade este ID si quieres ocultar la opción
+                const gpayOptionContainer = document.getElementById('gpay-option-container'); 
                 if (gpayOptionContainer) gpayOptionContainer.style.display = 'none';
             }
         })
@@ -263,7 +262,6 @@ function onGooglePayLoaded() {
             console.error('Error al verificar Google Pay:', err);
         });
 }
-
 // Renderiza el botón de Google Pay
 function renderGooglePayButton(totalAmount) {
     if (!paymentsClient) { // Asegurarse que esté inicializado
@@ -646,16 +644,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function showStep(stepToShow) {
-        document.querySelectorAll('.step').forEach((stepEl, index) => {
-            if (index + 1 === stepToShow) {
-                stepEl.classList.remove("d-none", "oculto");
-                stepEl.classList.add("active");
-            } else {
-                stepEl.classList.remove("active");
-                stepEl.classList.add("d-none");
-            }
-        });
-        currentStep = stepToShow;
+        document.querySelectorAll('.paso').forEach((stepEl, index) => { 
+        if (index + 1 === stepToShow) {
+            stepEl.classList.remove("d-none", "oculto");
+            stepEl.classList.add("active");
+        } else {
+            stepEl.classList.remove("active");
+            stepEl.classList.add("d-none");
+        }
+    });
+    
+    currentStep = stepToShow;
         const progressPercentage = Math.max(0, (currentStep - 1) / 3 * 100); // Ajustar progreso inicial
         progressBar.style.width = `${progressPercentage}%`;
         progressBar.setAttribute('aria-valuenow', progressPercentage); // Accesibilidad
@@ -754,21 +753,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const data = await response.json();
 
-            if (response.ok) { // Éxito (2xx status code)
-                console.log("Respuesta exitosa del backend:", data);
-                // Guardar ID del pedido para la confirmación
-                sessionStorage.setItem("ultimoPedidoId", data.pedidoId); // Usar sessionStorage
-                // Guardar info básica para mostrar en confirmación (opcional)
-                sessionStorage.setItem("infoConfirmacion", JSON.stringify({
-                    nombre: ordenData.nombreCliente,
-                    total: data.totalCalculado !== undefined ? data.totalCalculado : totalElement.textContent // Usar total del backend si lo devuelve
-                }));
+           if (response.ok) { // Éxito (2xx status code)
+               console.log("Respuesta exitosa del backend:", data);
 
-                localStorage.removeItem("carrito"); // Limpiar carrito
-                googlePayToken = null; // Limpiar token GPay
-                updateCartCounter(); // Actualizar contador a 0
+                // 1. Guardar el ID oficial para consultar al backend
+                sessionStorage.setItem("ultimoPedidoId", data.pedidoId); 
 
-                // Redirigir a confirmación
+                // 2. GUARDAR COPIA DE SEGURIDAD (Esto arregla el error de S/ 0.00)
+                // Guardamos lo que el usuario ve en pantalla ahora mismo
+                const backupData = {
+                    cliente: document.getElementById("nombre").value + " " + document.getElementById("apellido").value,
+                    subtotal: document.getElementById("subtotal").textContent,
+                    delivery: document.getElementById("delivery-cost").textContent,
+                    total: document.getElementById("total").textContent,
+                    comprobante: document.getElementById("boleta").checked ? "Boleta" : "Factura",
+                    // Si tienes la dirección en pantalla, guárdala también
+                    direccion: document.getElementById("direccion") ? document.getElementById("direccion").value : ""
+                };
+                sessionStorage.setItem("backupPedido", JSON.stringify(backupData));
+
+                // Limpiezas
+                localStorage.removeItem("carrito"); 
+                googlePayToken = null; 
+                updateCartCounter(); 
+
+                // Redirigir
                 window.location.href = "confirmacion.html";
 
             } else { // Error del backend (4xx, 5xx)
@@ -890,7 +899,7 @@ document.addEventListener("DOMContentLoaded", () => {
         showStep(1); // Asegurarse de mostrar el primer paso
         // Inicializar Google Pay (si el script se cargó)
         if (typeof google !== 'undefined' && google.payments && google.payments.api) {
-            onGooglePayLoaded();
+            window.onGooglePayLoaded();
         } else {
             console.warn("Google Pay API script no cargado o inicializado.");
             // Ocultar opción GPay si la API no carga
