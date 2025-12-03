@@ -525,15 +525,16 @@ document.addEventListener("DOMContentLoaded", () => {
         const camposTarjetaManual = document.getElementById('campos-tarjeta-manual');
 
         if (tarjetaRadio.checked) {
-            tarjetaSection.classList.remove("d-none");
-            yapeNumeroContainer.classList.add("d-none");
-            yapeCodigoContainer.classList.add("d-none");
-            yapeNumeroInput.required = false;
-            yapeCodigoInput.required = false; // Asumo que código Yape también es requerido
-
-            // Limpiar campos Yape
-            yapeNumeroInput.value = '';
-            yapeCodigoInput.value = '';
+            // --- MODO TARJETA ---
+                tarjetaSection.classList.remove("d-none");
+                yapeNumeroContainer.classList.add("d-none", "oculto");
+                yapeCodigoContainer.classList.add("d-none", "oculto");
+                
+                // Desactivar validación de Yape
+                yapeNumeroInput.required = false;
+                yapeCodigoInput.required = false; 
+                yapeNumeroInput.value = '';
+                yapeCodigoInput.value = '';
 
 
             // Habilitar campos de tarjeta manual SOLO si NO se usó GPay
@@ -559,17 +560,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
         } else { // Si es Yape
             tarjetaSection.classList.add("d-none");
-            yapeNumeroContainer.classList.remove("d-none");
-            yapeCodigoContainer.classList.remove("d-none"); // Mostrar campo código Yape
+            
+            // MOSTRAR sección de Yape (Corrección aquí)
+            yapeNumeroContainer.classList.remove("d-none", "oculto"); // <--- AGREGA "oculto"
+            yapeCodigoContainer.classList.remove("d-none", "oculto"); // <--- AGREGA "oculto"
+            
             yapeNumeroInput.required = true;
-            yapeCodigoInput.required = true; // Hacer requerido
+            yapeCodigoInput.required = true;
 
+            // LDesactivar validación de Tarjeta ---
+            numeroTarjetaInput.required = false;
+            fechaVencimientoInput.required = false;
+            cvvInput.required = false;
+            titularInput.required = false;
             // Limpiar campos Tarjeta
             numeroTarjetaInput.value = '';
             fechaVencimientoInput.value = '';
             cvvInput.value = '';
             titularInput.value = '';
-
 
             // Ocultar Google Pay y mensaje de éxito GPay
             if (gpayContainer) gpayContainer.style.display = 'none';
