@@ -204,182 +204,136 @@ document.addEventListener("DOMContentLoaded", () => {
     const deliveryCostElement = document.getElementById("delivery-cost");
     const totalElement = document.getElementById("total");
     const confirmacionHeader = document.getElementById("confirmacion-header");
-    const loaderElement = document.getElementById("loader-confirmacion"); // Necesitas <div id="loader-confirmacion">...</div>
-    const errorElement = document.getElementById("error-confirmacion"); // Necesitas <div id="error-confirmacion" style="display: none;"></div>
+    const loaderElement = document.getElementById("loader-confirmacion"); 
+    const errorElement = document.getElementById("error-confirmacion"); 
 
-    // Verificar elementos
+    // Verificar elementos (igual que antes)
     if (!pedidoGrid || !mensajeEntrega || !clienteNombre || !comprobanteElement ||
-        !subtotalElement || !deliveryCostElement || !totalElement || !confirmacionHeader || !loaderElement || !errorElement) {
-        console.error("Error: Faltan elementos HTML en la página de confirmación.");
-        if (errorElement) errorElement.textContent = "Error al cargar la página.";
-        if (errorElement) errorElement.style.display = 'block';
+        !subtotalElement || !deliveryCostElement || !totalElement || !confirmacionHeader) {
+        console.error("Faltan elementos HTML críticos en confirmacion.html");
         return;
     }
 
-    /** Muestra loader */
-    function showLoader(message = "Cargando confirmación...") {
-        if (loaderElement) { loaderElement.innerHTML = `<div class="spinner-border text-warning" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">${message}</p>`; loaderElement.style.display = 'block'; }
-        if (pedidoGrid) pedidoGrid.style.display = 'none'; // Ocultar grid
-        if (errorElement) errorElement.style.display = 'none'; // Ocultar errores
-        console.log(message);
-    }
-
-    /** Oculta loader */
-    function hideLoader() {
-        if (loaderElement) loaderElement.style.display = 'none';
-        if (pedidoGrid) pedidoGrid.style.display = 'grid'; // O 'block' según tu CSS
-    }
-
-    /** Muestra mensaje de error */
-    function showError(message) {
-        hideLoader();
-        if (errorElement) { errorElement.textContent = message; errorElement.style.display = 'block'; }
-        else { alert(message); } // Fallback
-        if (pedidoGrid) pedidoGrid.style.display = 'none'; // Ocultar grid si hay error fatal
-        console.error(message);
-        // Limpiar campos sensibles
-        confirmacionHeader.textContent = "Error en Pedido";
-        clienteNombre.textContent = "-";
-        comprobanteElement.textContent = "-";
-        subtotalElement.textContent = "0.00";
-        deliveryCostElement.textContent = "0.00";
-        totalElement.textContent = "0.00";
-        mensajeEntrega.textContent = "No se pudo cargar la información.";
-    }
+    // Funciones de Loader (igual que antes)
+    function showLoader() { if (loaderElement) loaderElement.style.display = 'block'; }
+    function hideLoader() { if (loaderElement) loaderElement.style.display = 'none'; }
 
     /**
-     * Obtiene detalles del pedido desde /api/ordenes/{id} y muestra el resumen.
+     * ESTRATEGIA HÍBRIDA:
+     * 1. Carga inmediata desde sessionStorage (Backup) para evitar que salga S/ 0.00
+     * 2. Carga asíncrona desde Backend para confirmar detalles y productos
      */
     async function cargarYMostrarResumen() {
         showLoader();
+        
         const pedidoId = sessionStorage.getItem("ultimoPedidoId");
-        const token = getToken();
+        const backupJson = sessionStorage.getItem("backupPedido"); // LEER BACKUP
+        const backupData = backupJson ? JSON.parse(backupJson) : null;
 
-        // Recuperar info básica (fallback)
-        const infoConfirmacion = JSON.parse(sessionStorage.getItem("infoConfirmacion")) || {};
-        confirmacionHeader.textContent = `Confirmando pedido para ${infoConfirmacion.nombre || 'cliente'}...`;
+        // PASO 1: Mostrar datos de backup INMEDIATAMENTE (si existen)
+        if (backupData) {
+            console.log("Cargando datos desde Backup (sessionStorage)...");
+            mostrarDatosDeBackup(backupData);
+        }
 
+        // Si no hay ID de pedido, nos quedamos con el backup y terminamos
         if (!pedidoId) {
-            showError("Error: No se encontró ID del pedido. Por favor, realiza el pedido de nuevo.");
-            return;
-        }
-        if (!token) {
-            showError("Error: Sesión no válida. Por favor, inicia sesión.");
-            // Opcional: Redirigir a login
-            // setTimeout(() => window.location.href = 'login.html', 3000);
-            return;
-        }
-
-        try {
-            console.log(`Obteniendo detalles del pedido ID: ${pedidoId} desde /api/ordenes/${pedidoId}`);
-            // --- LLAMADA AL NUEVO ENDPOINT SEGURO PARA CLIENTE ---
-            const response = await fetchWithAuth(`${API_BASE_URL}/ordenes/${pedidoId}`);
-            // --- FIN LLAMADA ---
-
-            if (response.ok) {
-                const pedido = await response.json();
-                console.log("Pedido recibido:", pedido);
-                mostrarResumen(pedido);
-            } else {
-                const errorData = await response.json().catch(() => ({}));
-                const errorMsg = errorData.error || `Error ${response.status}: ${response.statusText}`;
-                if (response.status === 404) {
-                    showError(`Error: No se encontró tu pedido (ID ${pedidoId}). ${errorMsg}`);
-                } else if (response.status === 403) {
-                    showError(`Error: No tienes permiso para ver este pedido. ${errorMsg}`);
-                } else {
-                    showError(`Error al cargar el pedido: ${errorMsg}`);
-                }
-                // Limpiar ID inválido de sessionStorage?
-                // sessionStorage.removeItem("ultimoPedidoId");
-            }
-        } catch (error) {
-            console.error("Error de red al obtener detalles:", error);
-            showError(`Error de conexión (${error.message}). Intenta recargar.`);
-        } finally {
             hideLoader();
-            // No limpiar sessionStorage aquí necesariamente, el usuario podría querer recargar
+            if(!backupData) console.error("No hay ID de pedido ni Backup.");
+            return;
+        }
+
+        // PASO 2: Intentar obtener la data oficial del backend
+        const token = getToken();
+        if (token) {
+            try {
+                const response = await fetchWithAuth(`${API_BASE_URL}/ordenes/${pedidoId}`);
+                if (response.ok) {
+                    const pedidoBackend = await response.json();
+                    console.log("Datos del backend recibidos:", pedidoBackend);
+                    // Sobreescribir con la data oficial (que incluye productos)
+                    mostrarResumenBackend(pedidoBackend);
+                } else {
+                    console.warn("Backend no respondió 200 OK. Manteniendo datos de backup.");
+                }
+            } catch (error) {
+                console.error("Error conectando al backend:", error);
+                // No mostramos error al usuario porque ya está viendo los datos del backup
+            } finally {
+                hideLoader();
+            }
+        } else {
+            hideLoader();
         }
     }
 
     /**
-     * Muestra el resumen usando datos del objeto 'pedido' del backend.
+     * Función 1: Muestra los datos guardados antes de salir de la página de pago.
+     * Esto asegura que los montos SIEMPRE se vean correctos.
      */
-    function mostrarResumen(pedido) {
-        if (!pedido || !pedido.id || !pedido.cliente || !pedido.detalles) {
-            showError("Los datos del pedido recibido son inválidos.");
-            return;
+    function mostrarDatosDeBackup(data) {
+        confirmacionHeader.textContent = `¡Pedido Confirmado!`;
+        if(clienteNombre) clienteNombre.textContent = data.cliente || "";
+        
+        // Aquí asignamos los valores que guardamos en pago_detalles.js
+        if(subtotalElement) subtotalElement.textContent = data.subtotal; // Ya viene formateado
+        if(deliveryCostElement) deliveryCostElement.textContent = data.delivery;
+        if(totalElement) totalElement.textContent = data.total;
+        
+        if(comprobanteElement) comprobanteElement.textContent = data.comprobante;
+        
+        // Mensaje temporal mientras carga el backend
+        pedidoGrid.innerHTML = `
+            <div class="alert alert-success text-center">
+                <i class="bi bi-check-circle"></i> Tu pedido ha sido registrado correctamente.
+            </div>`;
+    }
+
+    /**
+     * Función 2: Muestra los datos oficiales del Backend y la lista de productos.
+     */
+    function mostrarResumenBackend(pedido) {
+        // Mapeo seguro de propiedades (Backend Java a veces usa camelCase)
+        const subtotal = pedido.subtotal || 0;
+        // IMPORTANTE: Aquí corregimos el posible error de nombre (montoAgregado vs monto_Agregado)
+        const costoDelivery = pedido.monto_Agregado !== undefined ? pedido.monto_Agregado : (pedido.montoAgregado || 0);
+        const total = pedido.total || 0;
+
+        // Actualizar montos (por si el backend calculó algo diferente)
+        subtotalElement.textContent = subtotal.toFixed(2);
+        deliveryCostElement.textContent = costoDelivery.toFixed(2);
+        totalElement.textContent = total.toFixed(2);
+
+        // Actualizar cliente si viene del backend
+        if (pedido.cliente) {
+            clienteNombre.textContent = `${pedido.cliente.nombre || ''} ${pedido.cliente.apellido || ''}`;
         }
 
-        // Encabezado
-        confirmacionHeader.textContent = `¡Pedido Confirmado, ${pedido.cliente.nombre || ''} ${pedido.cliente.apellido || ''}!`;
-
-        // Grid de Items
-        pedidoGrid.innerHTML = ""; // Limpiar
-        if (pedido.detalles.length === 0) {
-            pedidoGrid.innerHTML = "<p>Esta orden no tiene productos.</p>";
-        } else {
+        // Renderizar la lista de productos (Grid)
+        pedidoGrid.innerHTML = "";
+        if (pedido.detalles && pedido.detalles.length > 0) {
             pedido.detalles.forEach((item) => {
-                if (!item || !item.producto) return; // Saltar item inválido
+                const prod = item.producto || {};
                 const itemElement = document.createElement("div");
-                itemElement.className = "columna-pedido margen-inferior-mediano"; // Tus clases CSS
+                // Asegúrate que estas clases coincidan con tu CSS
+                itemElement.className = "columna-pedido margen-inferior-mediano"; 
                 itemElement.innerHTML = `
-                  <div class="tarjeta-pedido cuerpo-tarjeta sombra-pequena">
-                    <img src="${item.producto.imagen || 'icon/logo.png'}" alt="${item.producto.producto || 'Producto'}"
-                         class="card-img-top carrito-img"
-                         onerror="this.onerror=null;this.src='icon/logo.png';">
-                    <h5 class="titulo-tarjeta">${item.producto.producto || 'N/A'}</h5>
-                    <p class="texto-tarjeta">Precio: S/ ${(item.producto.precio || 0).toFixed(2)}</p>
-                    <p class="texto-tarjeta">Cantidad: ${item.cantidad || 'N/A'}</p>
-                    <p class="texto-tarjeta fw-bold">Subtotal: S/ ${(item.subtotal || 0).toFixed(2)}</p>
+                  <div class="tarjeta-pedido cuerpo-tarjeta sombra-pequena" style="border: 1px solid #ddd; padding: 10px; border-radius: 8px;">
+                    <img src="${prod.imagen || 'icon/logo.png'}" 
+                         class="card-img-top carrito-img" 
+                         style="max-height: 100px; object-fit: contain;"
+                         onerror="this.src='icon/logo.png'">
+                    <h5 class="titulo-tarjeta mt-2">${prod.producto || 'Producto'}</h5>
+                    <p class="texto-tarjeta mb-1">Cant: ${item.cantidad}</p>
+                    <p class="texto-tarjeta fw-bold">S/ ${(item.subtotal || 0).toFixed(2)}</p>
                   </div>`;
                 pedidoGrid.appendChild(itemElement);
             });
         }
-
-        // Detalles Cliente y Costos
-        clienteNombre.textContent = `${pedido.cliente.nombre || ''} ${pedido.cliente.apellido || ''}`;
-
-        // Comprobante (mejorado para leer de entidad Comprobante si existe)
-        let comprobanteTexto = "Boleta"; // Default
-        if (pedido.comprobante && pedido.comprobante.tipo_Comprobante) {
-            comprobanteTexto = pedido.comprobante.tipo_Comprobante;
-            if (comprobanteTexto.toLowerCase() === 'factura' && pedido.comprobante.ruc) {
-                comprobanteTexto += ` (RUC: ${pedido.comprobante.ruc})`;
-            }
-            // Asume que DNI está en Cliente si es boleta
-            else if (comprobanteTexto.toLowerCase() === 'boleta' && pedido.cliente.dni) {
-                comprobanteTexto += ` (DNI: ${pedido.cliente.dni})`; // Necesitas añadir DNI a Cliente si no está
-            } else if (comprobanteTexto.toLowerCase() === 'boleta') {
-                comprobanteTexto = "Boleta (DNI no especificado)";
-            }
-        } else {
-            // Fallback si no hay entidad Comprobante (menos preciso)
-            console.warn("Entidad Comprobante no encontrada o sin tipo para pedido:", pedido.id);
-            comprobanteTexto = "Comprobante (Tipo no disponible)";
-        }
-        comprobanteElement.textContent = comprobanteTexto;
-
-
-        // Totales desde el backend
-        subtotalElement.textContent = (pedido.subtotal || 0).toFixed(2);
-        deliveryCostElement.textContent = (pedido.monto_Agregado || 0).toFixed(2);
-        totalElement.textContent = (pedido.total || 0).toFixed(2);
-
-        // Mensaje de entrega (basado en entidad Entrega si existe)
-        let mensajeEntregaTexto = "Recojo en local programado."; // Default si no hay info de entrega
-        if (pedido.entrega && pedido.entrega.metodo_Entrega) {
-            mensajeEntregaTexto = pedido.entrega.metodo_Entrega.toLowerCase() === "delivery"
-                ? "Tu pedido llegará en aproximadamente 15-30 minutos." // Tiempo estimado debe venir del backend?
-                : "Tu pedido estará listo para recojo en aproximadamente 15 minutos."; // Tiempo estimado debe venir del backend?
-        } else {
-            console.warn("Entidad Entrega no encontrada o sin método para pedido:", pedido.id);
-        }
-        mensajeEntrega.textContent = mensajeEntregaTexto;
     }
 
     // --- Inicialización ---
-    renderAuthButtons(); // Asegurarse que esté disponible globalmente
+    renderAuthButtons(); 
     cargarYMostrarResumen();
 
-}); // Fin DOMContentLoaded
+});
