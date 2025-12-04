@@ -2,7 +2,7 @@
 
 // --- CONFIGURACIÓN ---
 // URL de Producción (Railway) ACTIVA según tu solicitud:
-const API_BASE_URL = 'https://larutadelsaborbackend-production.up.railway.app/api';
+const API_BASE_URL = 'http://localhost:8080/api';
 // const API_BASE_URL = 'http://localhost:8080/api'; // Descomenta esta si necesitas probar en local
 
 // --- Funciones Auxiliares (Token y Auth) ---
