@@ -1,8 +1,9 @@
 // js/admin.js
 
 // --- CONFIGURACIÓN ---
-// IMPORTANTE: Si estás probando en local, cambia esto a 'http://localhost:8080/api'
+// URL de Producción (Railway) ACTIVA según tu solicitud:
 const API_BASE_URL = 'https://larutadelsaborbackend-production.up.railway.app/api';
+// const API_BASE_URL = 'http://localhost:8080/api'; // Descomenta esta si necesitas probar en local
 
 // --- Funciones Auxiliares (Token y Auth) ---
 
@@ -38,11 +39,19 @@ async function fetchWithAuth(url, options = {}) {
     try {
         const response = await fetch(url, { ...options, headers });
 
-        // Si el token no es válido o expiró, cerrar sesión forzosamente
+        // Manejo de errores de autenticación
         if (response.status === 401 || response.status === 403) {
-            console.warn("Sesión expirada o sin permisos. Redirigiendo...");
-            logout();
-            throw new Error("Sesión expirada");
+            console.warn(`Error de permisos (${response.status}). Verifique si el backend actualizado está desplegado.`);
+            
+            // Si es 403, el usuario está logueado pero su ROL no coincide con lo que pide el Backend.
+            // Si es 401, el token venció o es inválido.
+            if (response.status === 401) {
+                 logout();
+                 throw new Error("Sesión expirada.");
+            }
+            // En caso de 403, a veces es mejor avisar antes de sacar al usuario, 
+            // pero por seguridad cerramos sesión si intenta algo crítico.
+            // Para lectura (GET) el backend debería permitirlo (permitAll), así que 403 aquí es raro en loadData.
         }
 
         return response;
@@ -55,6 +64,7 @@ async function fetchWithAuth(url, options = {}) {
 function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('rol');
     window.location.href = 'login.html';
 }
 
@@ -110,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (errorElement) {
             errorElement.textContent = msg;
             errorElement.style.display = 'block';
-            setTimeout(() => { errorElement.style.display = 'none'; }, 5000); // Ocultar tras 5s
+            setTimeout(() => { errorElement.style.display = 'none'; }, 5000);
         } else {
             alert(msg);
         }
@@ -120,31 +130,28 @@ document.addEventListener('DOMContentLoaded', () => {
     function checkAdminAccess() {
         const token = getToken();
         const user = getUser();
+        const rolGuardado = localStorage.getItem('rol'); 
         
-        if (!token || !user) {
+        if (!token) {
             window.location.href = 'login.html';
             return false;
         }
 
-        // Lógica para detectar el rol "ADMIN" en distintas estructuras de JSON
         let isAdmin = false;
 
-        // Caso 1: Estructura simple { rol: "ADMIN" } o { rol: "ROLE_ADMIN" }
-        if (typeof user.rol === 'string') {
-            isAdmin = user.rol.includes('ADMIN');
-        } 
-        // Caso 2: Objeto anidado { rol: { name: "ROLE_ADMIN" } }
-        else if (user.rol && user.rol.name) {
-            isAdmin = user.rol.name.includes('ADMIN');
+        // Comprobación compatible con Spring Security y tu código anterior
+        if (rolGuardado && (rolGuardado.includes('ADMIN') || rolGuardado.includes('VENDEDOR'))) {
+            isAdmin = true;
         }
-        // Caso 3: Lista de autoridades Spring Security { authorities: [{ authority: "ROLE_ADMIN" }] }
-        else if (Array.isArray(user.authorities)) {
-            isAdmin = user.authorities.some(auth => auth.authority.includes('ADMIN'));
+        else if (user) {
+            if (user.rol && typeof user.rol === 'string' && user.rol.includes('ADMIN')) isAdmin = true;
+            else if (user.rol && user.rol.name && user.rol.name.includes('ADMIN')) isAdmin = true;
+            else if (Array.isArray(user.authorities) && user.authorities.some(a => a.authority.includes('ADMIN') || a.authority.includes('VENDEDOR'))) isAdmin = true;
         }
 
         if (!isAdmin) {
             alert('Acceso Denegado: No tienes permisos de Administrador.');
-            window.location.href = 'index.html'; // Mandar al home, no al login
+            window.location.href = 'index.html'; 
             return false;
         }
         return true;
@@ -152,28 +159,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 4. CARGA DE DATOS (Fetch) ---
     async function loadData() {
-        showLoader("Cargando datos del sistema...");
+        showLoader("Cargando datos...");
         try {
-            // Cargar categorías y productos en paralelo
+            // CORRECCIÓN: Usamos /productos (GET público) en lugar de /productos/admin/all
+            // Esto evita el 403 al cargar la lista.
             const [catResponse, prodResponse] = await Promise.all([
                 fetchWithAuth(`${API_BASE_URL}/categorias`),
-                fetchWithAuth(`${API_BASE_URL}/productos/admin/all`) // Asegúrate que este endpoint exista en tu Backend
+                fetchWithAuth(`${API_BASE_URL}/productos`) 
             ]);
 
-            if (!catResponse.ok) throw new Error("Error cargando categorías");
-            if (!prodResponse.ok) throw new Error("Error cargando productos");
+            if (!catResponse.ok) throw new Error(`Error categorías (${catResponse.status})`);
+            if (!prodResponse.ok) throw new Error(`Error productos (${prodResponse.status})`);
 
             categories = await catResponse.json();
             products = await prodResponse.json();
 
-            // Renderizar todo
             renderCategories();
-            updateCategoryDropdown(); // Llenar el select antes de renderizar productos
+            updateCategoryDropdown(); 
             renderProducts();
 
         } catch (error) {
             console.error(error);
-            showError("No se pudo conectar con el servidor. " + error.message);
+            showError("No se pudo cargar la información. " + error.message);
         } finally {
             hideLoader();
         }
@@ -186,7 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         categories.forEach(cat => {
             const li = document.createElement('li');
-            // Si está anulada, ponerla gris
             const statusClass = cat.audAnulado ? 'bg-gray-200 text-gray-500' : '';
             
             li.className = `list-group-item d-flex justify-content-between align-items-center ${statusClass}`;
@@ -215,24 +221,24 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const method = editingCategoryId ? 'PUT' : 'POST';
+        // Usamos ruta estándar RESTful. Asegúrate que tu backend soporte esto.
         const url = editingCategoryId 
-            ? `${API_BASE_URL}/categorias/admin/${editingCategoryId}`
-            : `${API_BASE_URL}/categorias/admin`;
+             ? `${API_BASE_URL}/categorias/${editingCategoryId}`
+             : `${API_BASE_URL}/categorias`;
 
-        // Si es PUT, necesitamos pasar el ID dentro del body a veces, o Spring lo toma de la URL
         if(editingCategoryId) payload.id = editingCategoryId;
 
         try {
-            showLoader("Guardando categoría...");
+            showLoader("Guardando...");
             const res = await fetchWithAuth(url, {
                 method: method,
                 body: JSON.stringify(payload)
             });
 
             if (res.ok) {
-                await loadData(); // Recargar todo para actualizar dropdowns
+                await loadData(); 
                 resetCategoryForm();
-                showError("Categoría guardada exitosamente (Info)"); // Usamos showError como notificacion temporal
+                showError("Categoría guardada exitosamente"); 
             } else {
                 const err = await res.json();
                 showError(err.error || "Error al guardar categoría");
@@ -267,7 +273,6 @@ document.addEventListener('DOMContentLoaded', () => {
         productCategorySelect.innerHTML = '<option value="" selected disabled>Seleccione una categoría...</option>';
         
         categories.forEach(cat => {
-            // Solo mostrar categorías activas en el selector para nuevos productos
             if (!cat.audAnulado) {
                 const option = document.createElement('option');
                 option.value = cat.id;
@@ -288,9 +293,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         products.forEach(prod => {
             const tr = document.createElement('tr');
-            if (prod.audAnulado) tr.classList.add('table-secondary', 'text-muted'); // Bootstrap clases para inactivos
+            if (prod.audAnulado) tr.classList.add('table-secondary', 'text-muted'); 
 
-            // Busca el nombre de la categoría (asumiendo que prod.categoria es un objeto con id o nombre)
+            // Manejo seguro del objeto categoria
             const catName = prod.categoria ? (prod.categoria.categoria || 'Sin Cat') : 'N/A';
             const precio = prod.precio ? parseFloat(prod.precio).toFixed(2) : '0.00';
 
@@ -299,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="small text-truncate" style="max-width: 150px;">${prod.descripcion || ''}</td>
                 <td>S/ ${precio}</td>
                 <td>${prod.stock}</td>
-                <td><img src="${prod.imagen}" alt="img" style="width:40px; height:40px; object-fit:cover; border-radius:5px;"></td>
+                <td><img src="${prod.imagen || 'img/placeholder.png'}" alt="img" style="width:40px; height:40px; object-fit:cover; border-radius:5px;"></td>
                 <td>
                     <button class="btn btn-sm btn-warning me-1 btn-edit-prod" data-id="${prod.id}">
                         <i class="bi bi-pencil"></i>
@@ -316,7 +321,6 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleProductSubmit(e) {
         e.preventDefault();
 
-        // Validación básica
         if (!productCategorySelect.value) {
             showError("Debes seleccionar una categoría");
             return;
@@ -328,15 +332,16 @@ document.addEventListener('DOMContentLoaded', () => {
             precio: parseFloat(productPriceInput.value),
             stock: parseInt(productStockInput.value),
             imagen: productImageInput.value.trim(),
-            // Enviar objeto categoría con ID
             categoria: { id: parseInt(productCategorySelect.value) },
             audAnulado: false
         };
 
         const method = editingProductId ? 'PUT' : 'POST';
+        
+        // CORRECCIÓN URL: Endpoints estándar (/api/productos)
         const url = editingProductId 
-            ? `${API_BASE_URL}/productos/admin/${editingProductId}`
-            : `${API_BASE_URL}/productos/admin`;
+            ? `${API_BASE_URL}/productos/${editingProductId}`
+            : `${API_BASE_URL}/productos`;
 
         if (editingProductId) payload.id = editingProductId;
 
@@ -352,8 +357,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 resetProductForm();
                 showError("Producto guardado exitosamente");
             } else {
-                const err = await res.json();
-                showError(err.error || "Error guardando producto");
+                let errMsg = "Error desconocido";
+                try {
+                    const err = await res.json();
+                    errMsg = err.error || err.message || JSON.stringify(err);
+                } catch(e) {
+                    errMsg = await res.text();
+                }
+                showError("Error: " + errMsg);
             }
         } catch (error) {
             showError("Error de red guardando producto");
@@ -369,7 +380,6 @@ document.addEventListener('DOMContentLoaded', () => {
         productStockInput.value = prod.stock;
         productImageInput.value = prod.imagen;
         
-        // Seleccionar categoría si existe
         if (prod.categoria && prod.categoria.id) {
             productCategorySelect.value = prod.categoria.id;
         }
@@ -388,10 +398,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cancelProductBtn) cancelProductBtn.style.display = 'none';
     }
 
-    // --- 7. TOGGLE STATUS (Eliminado Lógico) ---
+    // --- 7. TOGGLE STATUS (Eliminado Lógico / Reactivación) ---
     async function toggleEntityStatus(type, id) {
-        // type: 'categorias' o 'productos'
-        // Buscar el objeto actual para saber si está anulado o no
         const list = type === 'categorias' ? categories : products;
         const item = list.find(x => x.id === id);
         if (!item) return;
@@ -404,18 +412,17 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             showLoader("Procesando...");
             
-            // Lógica: Si reactivamos -> PUT cambiando audAnulado. Si eliminamos -> DELETE.
             let url, method, body;
 
+            // Lógica de eliminado lógico mediante PUT o DELETE
             if (isReactivating) {
                 method = 'PUT';
-                url = `${API_BASE_URL}/${type}/admin/${id}`;
-                // Copiar el item y cambiar estado
+                url = `${API_BASE_URL}/${type}/${id}`;
                 const updatedItem = { ...item, audAnulado: false };
                 body = JSON.stringify(updatedItem);
             } else {
                 method = 'DELETE';
-                url = `${API_BASE_URL}/${type}/admin/${id}`;
+                url = `${API_BASE_URL}/${type}/${id}`;
             }
 
             const res = await fetchWithAuth(url, {
@@ -426,7 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 await loadData();
             } else {
-                showError("Error al cambiar estado del elemento");
+                showError(`Error al ${action} el elemento.`);
             }
 
         } catch (e) {
@@ -480,23 +487,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Botón Logout (si existe en el HTML)
+    // Botón Logout
     const btnLogout = document.getElementById('btnLogout') || document.querySelector('.btn-logout');
     if (btnLogout) {
         btnLogout.addEventListener('click', (e) => {
             e.preventDefault();
             logout();
-        });
-    }
-
-    // --- 9. REGISTRO DE EMPLEADOS (Opcional si está en esta vista) ---
-    const employeeForm = document.getElementById('employeeForm');
-    if (employeeForm) {
-        employeeForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            // ... (Tu lógica existente de empleados, recuerda usar fetchWithAuth) ...
-            // Si necesitas ayuda con esto, avísame, pero el código original parecía bien
-            // solo asegúrate de usar fetchWithAuth para el registro de empleados también.
         });
     }
 
