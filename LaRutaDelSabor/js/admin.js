@@ -1,10 +1,15 @@
 // js/admin.js
 
-// --- CONFIGURACIÓN ---
-// IMPORTANTE: Si estás probando en local, cambia esto a 'http://localhost:8080/api'
-const API_BASE_URL = 'https://larutadelsaborbackend-production.up.railway.app/api';
+// --- 1. CONFIGURACIÓN DINÁMICA ---
+// Detecta si estás en local o en producción automáticamente
+const isLocal = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+const API_BASE_URL = isLocal 
+    ? 'http://localhost:8080/api' 
+    : 'https://larutadelsaborbackend-production.up.railway.app/api';
 
-// --- Funciones Auxiliares (Token y Auth) ---
+console.log(`[Admin] Conectado a: ${API_BASE_URL}`);
+
+// --- 2. FUNCIONES AUXILIARES (Token y Auth) ---
 
 function getToken() {
     return localStorage.getItem('token');
@@ -38,11 +43,11 @@ async function fetchWithAuth(url, options = {}) {
     try {
         const response = await fetch(url, { ...options, headers });
 
-        // Si el token no es válido o expiró, cerrar sesión forzosamente
+        // Si el token no es válido o expiró
         if (response.status === 401 || response.status === 403) {
             console.warn("Sesión expirada o sin permisos. Redirigiendo...");
             logout();
-            throw new Error("Sesión expirada");
+            throw new Error("Sesión expirada o no autorizada");
         }
 
         return response;
@@ -58,7 +63,7 @@ function logout() {
     window.location.href = 'login.html';
 }
 
-// --- Lógica Principal del Panel de Admin ---
+// --- 3. LÓGICA PRINCIPAL DEL PANEL ---
 
 document.addEventListener('DOMContentLoaded', () => {
     // Variables de estado
@@ -67,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let editingProductId = null;
     let editingCategoryId = null;
 
-    // Elementos DOM
+    // Elementos DOM (Productos y Categorías)
     const categoryListUl = document.getElementById('category-list-ul');
     const categoryForm = document.getElementById('categoryForm');
     const categoryNameInput = document.getElementById('categoryName');
@@ -90,10 +95,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const loaderElement = document.getElementById('admin-loader');
     const errorElement = document.getElementById('admin-error');
 
-    // --- 1. VERIFICACIÓN DE SEGURIDAD AL INICIAR ---
+    // --- VERIFICACIÓN DE SEGURIDAD AL INICIAR ---
     if (!checkAdminAccess()) return;
 
-    // --- 2. FUNCIONES DE UI (Loader/Error) ---
+    // --- FUNCIONES DE UI ---
     function showLoader(msg) {
         if (loaderElement) {
             loaderElement.textContent = msg;
@@ -110,13 +115,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (errorElement) {
             errorElement.textContent = msg;
             errorElement.style.display = 'block';
-            setTimeout(() => { errorElement.style.display = 'none'; }, 5000); // Ocultar tras 5s
+            setTimeout(() => { errorElement.style.display = 'none'; }, 5000);
         } else {
             alert(msg);
         }
     }
 
-    // --- 3. VERIFICACIÓN DE ROL ---
+    // --- VERIFICACIÓN DE ROL ROBUSTA ---
     function checkAdminAccess() {
         const token = getToken();
         const user = getUser();
@@ -126,38 +131,43 @@ document.addEventListener('DOMContentLoaded', () => {
             return false;
         }
 
-        // Lógica para detectar el rol "ADMIN" en distintas estructuras de JSON
-        let isAdmin = false;
+        // Definimos quiénes pueden ver el panel.
+        // Agregamos ROLE_VENDEDOR porque en el backend les dimos permisos.
+        const allowedRoles = ['ROLE_ADMIN', 'ROLE_VENDEDOR', 'ADMIN', 'VENDEDOR'];
+        let hasPermission = false;
 
-        // Caso 1: Estructura simple { rol: "ADMIN" } o { rol: "ROLE_ADMIN" }
+        // 1. Chequeo en string directo
         if (typeof user.rol === 'string') {
-            isAdmin = user.rol.includes('ADMIN');
+            if (allowedRoles.some(r => user.rol.includes(r))) hasPermission = true;
         } 
-        // Caso 2: Objeto anidado { rol: { name: "ROLE_ADMIN" } }
+        // 2. Chequeo en objeto { rol: { name: "..." } }
         else if (user.rol && user.rol.name) {
-            isAdmin = user.rol.name.includes('ADMIN');
+             if (allowedRoles.some(r => user.rol.name.includes(r))) hasPermission = true;
         }
-        // Caso 3: Lista de autoridades Spring Security { authorities: [{ authority: "ROLE_ADMIN" }] }
+        // 3. Chequeo en lista de authorities (Spring Security default)
         else if (Array.isArray(user.authorities)) {
-            isAdmin = user.authorities.some(auth => auth.authority.includes('ADMIN'));
+            hasPermission = user.authorities.some(auth => 
+                allowedRoles.includes(auth.authority)
+            );
         }
 
-        if (!isAdmin) {
-            alert('Acceso Denegado: No tienes permisos de Administrador.');
-            window.location.href = 'index.html'; // Mandar al home, no al login
+        if (!hasPermission) {
+            alert('Acceso Denegado: No tienes permisos suficientes.');
+            window.location.href = 'index.html'; 
             return false;
         }
         return true;
     }
 
-    // --- 4. CARGA DE DATOS (Fetch) ---
+    // --- CARGA DE DATOS ---
     async function loadData() {
         showLoader("Cargando datos del sistema...");
         try {
-            // Cargar categorías y productos en paralelo
+            // Usamos las rutas que definimos como públicas o protegidas
+            // Nota: Si el backend tiene "/api/productos" público, igual enviamos token por si acaso.
             const [catResponse, prodResponse] = await Promise.all([
                 fetchWithAuth(`${API_BASE_URL}/categorias`),
-                fetchWithAuth(`${API_BASE_URL}/productos/admin/all`) // Asegúrate que este endpoint exista en tu Backend
+                fetchWithAuth(`${API_BASE_URL}/productos`) // O /productos/admin/all si tienes un endpoint específico de admin
             ]);
 
             if (!catResponse.ok) throw new Error("Error cargando categorías");
@@ -166,9 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
             categories = await catResponse.json();
             products = await prodResponse.json();
 
-            // Renderizar todo
             renderCategories();
-            updateCategoryDropdown(); // Llenar el select antes de renderizar productos
+            updateCategoryDropdown();
             renderProducts();
 
         } catch (error) {
@@ -179,14 +188,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- 5. GESTIÓN DE CATEGORÍAS ---
+    // --- GESTIÓN DE CATEGORÍAS ---
     function renderCategories() {
         if (!categoryListUl) return;
         categoryListUl.innerHTML = '';
 
         categories.forEach(cat => {
             const li = document.createElement('li');
-            // Si está anulada, ponerla gris
             const statusClass = cat.audAnulado ? 'bg-gray-200 text-gray-500' : '';
             
             li.className = `list-group-item d-flex justify-content-between align-items-center ${statusClass}`;
@@ -215,11 +223,11 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const method = editingCategoryId ? 'PUT' : 'POST';
+        // Ajuste de ruta para coincidir con SecurityConfig (/api/categorias/admin/**)
         const url = editingCategoryId 
             ? `${API_BASE_URL}/categorias/admin/${editingCategoryId}`
             : `${API_BASE_URL}/categorias/admin`;
 
-        // Si es PUT, necesitamos pasar el ID dentro del body a veces, o Spring lo toma de la URL
         if(editingCategoryId) payload.id = editingCategoryId;
 
         try {
@@ -230,9 +238,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (res.ok) {
-                await loadData(); // Recargar todo para actualizar dropdowns
+                await loadData();
                 resetCategoryForm();
-                showError("Categoría guardada exitosamente (Info)"); // Usamos showError como notificacion temporal
+                showError("Categoría guardada correctamente (Info)");
             } else {
                 const err = await res.json();
                 showError(err.error || "Error al guardar categoría");
@@ -261,13 +269,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cancelCategoryBtn) cancelCategoryBtn.style.display = 'none';
     }
 
-    // --- 6. GESTIÓN DE PRODUCTOS ---
+    // --- GESTIÓN DE PRODUCTOS ---
     function updateCategoryDropdown() {
         if (!productCategorySelect) return;
         productCategorySelect.innerHTML = '<option value="" selected disabled>Seleccione una categoría...</option>';
         
         categories.forEach(cat => {
-            // Solo mostrar categorías activas en el selector para nuevos productos
             if (!cat.audAnulado) {
                 const option = document.createElement('option');
                 option.value = cat.id;
@@ -288,10 +295,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         products.forEach(prod => {
             const tr = document.createElement('tr');
-            if (prod.audAnulado) tr.classList.add('table-secondary', 'text-muted'); // Bootstrap clases para inactivos
+            if (prod.audAnulado) tr.classList.add('table-secondary', 'text-muted');
 
-            // Busca el nombre de la categoría (asumiendo que prod.categoria es un objeto con id o nombre)
-            const catName = prod.categoria ? (prod.categoria.categoria || 'Sin Cat') : 'N/A';
+            // Validación segura de imagen
+            const imgUrl = (prod.imagen && prod.imagen.startsWith('http')) 
+                ? prod.imagen 
+                : 'https://via.placeholder.com/40?text=Sin+Img';
+
             const precio = prod.precio ? parseFloat(prod.precio).toFixed(2) : '0.00';
 
             tr.innerHTML = `
@@ -299,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="small text-truncate" style="max-width: 150px;">${prod.descripcion || ''}</td>
                 <td>S/ ${precio}</td>
                 <td>${prod.stock}</td>
-                <td><img src="${prod.imagen}" alt="img" style="width:40px; height:40px; object-fit:cover; border-radius:5px;"></td>
+                <td><img src="${imgUrl}" alt="img" style="width:40px; height:40px; object-fit:cover; border-radius:5px;"></td>
                 <td>
                     <button class="btn btn-sm btn-warning me-1 btn-edit-prod" data-id="${prod.id}">
                         <i class="bi bi-pencil"></i>
@@ -316,7 +326,6 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleProductSubmit(e) {
         e.preventDefault();
 
-        // Validación básica
         if (!productCategorySelect.value) {
             showError("Debes seleccionar una categoría");
             return;
@@ -328,15 +337,17 @@ document.addEventListener('DOMContentLoaded', () => {
             precio: parseFloat(productPriceInput.value),
             stock: parseInt(productStockInput.value),
             imagen: productImageInput.value.trim(),
-            // Enviar objeto categoría con ID
             categoria: { id: parseInt(productCategorySelect.value) },
             audAnulado: false
         };
 
         const method = editingProductId ? 'PUT' : 'POST';
+        // Ajuste de ruta para coincidir con SecurityConfig (/api/productos/admin/**)
+        // Ojo: Si usas /api/productos normal para POST, cámbialo aquí.
+        // Asumo que protegiste /api/productos con hasAuthority en POST/PUT
         const url = editingProductId 
-            ? `${API_BASE_URL}/productos/admin/${editingProductId}`
-            : `${API_BASE_URL}/productos/admin`;
+            ? `${API_BASE_URL}/productos/admin/${editingProductId}` // O simplemente /productos/${id} si así lo configuraste
+            : `${API_BASE_URL}/productos/admin`; // O /productos
 
         if (editingProductId) payload.id = editingProductId;
 
@@ -369,7 +380,6 @@ document.addEventListener('DOMContentLoaded', () => {
         productStockInput.value = prod.stock;
         productImageInput.value = prod.imagen;
         
-        // Seleccionar categoría si existe
         if (prod.categoria && prod.categoria.id) {
             productCategorySelect.value = prod.categoria.id;
         }
@@ -388,10 +398,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cancelProductBtn) cancelProductBtn.style.display = 'none';
     }
 
-    // --- 7. TOGGLE STATUS (Eliminado Lógico) ---
+    // --- TOGGLE STATUS (Eliminado Lógico) ---
     async function toggleEntityStatus(type, id) {
-        // type: 'categorias' o 'productos'
-        // Buscar el objeto actual para saber si está anulado o no
         const list = type === 'categorias' ? categories : products;
         const item = list.find(x => x.id === id);
         if (!item) return;
@@ -404,13 +412,12 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             showLoader("Procesando...");
             
-            // Lógica: Si reactivamos -> PUT cambiando audAnulado. Si eliminamos -> DELETE.
             let url, method, body;
 
             if (isReactivating) {
                 method = 'PUT';
-                url = `${API_BASE_URL}/${type}/admin/${id}`;
-                // Copiar el item y cambiar estado
+                // Asegúrate que esta ruta exista en tu backend para reactivar
+                url = `${API_BASE_URL}/${type}/admin/${id}`; 
                 const updatedItem = { ...item, audAnulado: false };
                 body = JSON.stringify(updatedItem);
             } else {
@@ -436,7 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- 8. EVENT LISTENERS ---
+    // --- EVENT LISTENERS ---
     
     // Forms
     if (categoryForm) categoryForm.addEventListener('submit', handleCategorySubmit);
@@ -445,7 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (productForm) productForm.addEventListener('submit', handleProductSubmit);
     if (cancelProductBtn) cancelProductBtn.addEventListener('click', resetProductForm);
 
-    // Clicks en Tablas (Delegación de eventos)
+    // Tablas
     if (categoryListUl) {
         categoryListUl.addEventListener('click', (e) => {
             const btnEdit = e.target.closest('.btn-edit-cat');
@@ -453,8 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (btnEdit) {
                 const id = parseInt(btnEdit.dataset.id);
-                const cat = categories.find(c => c.id === id);
-                populateCategoryForm(cat);
+                populateCategoryForm(categories.find(c => c.id === id));
             }
             if (btnToggle) {
                 const id = parseInt(btnToggle.dataset.id);
@@ -470,8 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (btnEdit) {
                 const id = parseInt(btnEdit.dataset.id);
-                const prod = products.find(p => p.id === id);
-                populateProductForm(prod);
+                populateProductForm(products.find(p => p.id === id));
             }
             if (btnToggle) {
                 const id = parseInt(btnToggle.dataset.id);
@@ -480,7 +485,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Botón Logout (si existe en el HTML)
+    // Botón Logout
     const btnLogout = document.getElementById('btnLogout') || document.querySelector('.btn-logout');
     if (btnLogout) {
         btnLogout.addEventListener('click', (e) => {
@@ -489,14 +494,55 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- 9. REGISTRO DE EMPLEADOS (Opcional si está en esta vista) ---
+    // --- 9. REGISTRO DE EMPLEADOS (Preservado) ---
+    // Esta sección maneja el formulario de empleados usando fetchWithAuth
     const employeeForm = document.getElementById('employeeForm');
+    
     if (employeeForm) {
         employeeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            // ... (Tu lógica existente de empleados, recuerda usar fetchWithAuth) ...
-            // Si necesitas ayuda con esto, avísame, pero el código original parecía bien
-            // solo asegúrate de usar fetchWithAuth para el registro de empleados también.
+            
+            // Asumiendo que tienes inputs con estos IDs en tu HTML
+            const nombre = document.getElementById('empNombre')?.value;
+            const apellido = document.getElementById('empApellido')?.value;
+            const correo = document.getElementById('empCorreo')?.value;
+            const password = document.getElementById('empPass')?.value;
+            const telefono = document.getElementById('empTel')?.value;
+            // Rol puede venir de un select o hardcodeado
+            const rolId = document.getElementById('empRol')?.value || 2; // Default a vendedor si no hay select
+
+            if (!nombre || !correo || !password) {
+                showError("Por favor completa los campos obligatorios del empleado.");
+                return;
+            }
+
+            const payload = {
+                nombre, apellido, correo, 
+                contraseña: password, 
+                telefono,
+                rol: { id: parseInt(rolId) } // Ajustar según tu DTO de registro
+            };
+
+            try {
+                showLoader("Registrando empleado...");
+                // Ruta típica de registro (ajustar si es distinta)
+                const res = await fetchWithAuth(`${API_BASE_URL}/auth/register-employee`, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    alert("Empleado registrado con éxito");
+                    employeeForm.reset();
+                } else {
+                    const err = await res.json();
+                    showError(err.mensaje || "Error al registrar empleado");
+                }
+            } catch (error) {
+                showError("Error de conexión al registrar empleado");
+            } finally {
+                hideLoader();
+            }
         });
     }
 
