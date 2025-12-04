@@ -597,10 +597,13 @@ document.addEventListener("DOMContentLoaded", () => {
         let firstInvalidInput = null;
 
         inputs.forEach(input => {
+            if (input.offsetParent === null) {
+            return; // Saltar este input
+        }
             // Resetear validación personalizada
             input.setCustomValidity("");
             input.classList.remove("is-invalid");
-
+            
             let inputValid = true;
             if (!input.value.trim()) {
                 inputValid = false;
