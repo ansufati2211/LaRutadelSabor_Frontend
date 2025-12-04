@@ -84,21 +84,25 @@ function renderAuthButtons() {
     const token = getToken();
     authButtons.innerHTML = '';
 
-    let userRole = null;
-    if (user && user.roles && Array.isArray(user.roles)) {
-        if (user.roles.includes("ROLE_ADMIN") || user.roles.some(role => role.authority === "ROLE_ADMIN")) {
-            userRole = "ADMIN";
-        } else if (user.roles.includes("ROLE_VENDEDOR") || user.roles.some(role => role.authority === "ROLE_VENDEDOR")) {
-            userRole = "VENDEDOR";
-        } else if (user.roles.includes("ROLE_DELIVERY") || user.roles.some(role => role.authority === "ROLE_DELIVERY")) {
-            userRole = "DELIVERY";
-        } else if (user.roles.includes("ROLE_USER") || user.roles.some(role => role.authority === "ROLE_USER")) {
-            userRole = "CLIENTE";
+   let userRole = "CLIENTE";
+    // 1. DETECCIÓN DE ROL CORREGIDA
+    if (user) {
+        // Opción A: El backend envía un objeto "rol" (Tu caso probable)
+        if (user.rol) {
+            const nombreRol = user.rol.nombre || user.rol.name || "";
+            if (nombreRol.includes("ADMIN")) userRole = "ADMIN";
+            else if (nombreRol.includes("VENDEDOR")) userRole = "VENDEDOR";
+            else if (nombreRol.includes("DELIVERY")) userRole = "DELIVERY";
+        }
+        // Opción B: El backend envía una lista "roles" (Spring Security estándar)
+        else if (user.roles && Array.isArray(user.roles)) {
+            if (user.roles.some(r => (r.authority || r.nombre || "").includes("ADMIN"))) userRole = "ADMIN";
+            else if (user.roles.some(r => (r.authority || r.nombre || "").includes("VENDEDOR"))) userRole = "VENDEDOR";
+            else if (user.roles.some(r => (r.authority || r.nombre || "").includes("DELIVERY"))) userRole = "DELIVERY";
         }
     }
-    else if (token && user) {
-        userRole = "CLIENTE";
-    }
+
+    console.log("Rol detectado final:", userRole); // Verificación en consola
 
     const cartIconHtml = `
         <div class="carrito relative"> 
