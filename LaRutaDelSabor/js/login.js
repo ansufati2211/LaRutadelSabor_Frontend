@@ -7,12 +7,8 @@
  */
 
 // URL del Backend en Railway (Asegúrate de que no tenga doble slash al final)
-const isLocal = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
-const API_BASE_URL = isLocal 
-    ? 'http://localhost:8080/api' 
-    : 'https://larutadelsaborbackend-production.up.railway.app/api';
+const API_BASE_URL = 'https://larutadelsaborbackend-production.up.railway.app/api';
 
-console.log(`[Login] Conectado a: ${API_BASE_URL}`);
 /** Obtiene el token JWT del almacenamiento local */
 function getToken() {
     return localStorage.getItem('token');
