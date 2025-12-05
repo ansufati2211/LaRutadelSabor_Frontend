@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let categories = [];
     let products = [];
     let editingProductId = null;
-    let editingCategoryId = null;
+    let editingCategoryId = null; 
 
     // Elementos DOM
     const categoryListUl = document.getElementById('category-list-ul');
