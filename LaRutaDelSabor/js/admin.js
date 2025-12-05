@@ -1,9 +1,7 @@
 // js/admin.js
 
 // --- CONFIGURACIÓN ---
-// URL de Producción (Railway) ACTIVA según tu solicitud:
 const API_BASE_URL = 'https://larutadelsaborbackend-production.up.railway.app/api';
-// const API_BASE_URL = 'http://localhost:8080/api'; // Descomenta esta si necesitas probar en local
 
 // --- Funciones Auxiliares (Token y Auth) ---
 
@@ -39,19 +37,12 @@ async function fetchWithAuth(url, options = {}) {
     try {
         const response = await fetch(url, { ...options, headers });
 
-        // Manejo de errores de autenticación
         if (response.status === 401 || response.status === 403) {
-            console.warn(`Error de permisos (${response.status}). Verifique si el backend actualizado está desplegado.`);
-            
-            // Si es 403, el usuario está logueado pero su ROL no coincide con lo que pide el Backend.
-            // Si es 401, el token venció o es inválido.
+            console.warn(`Error de permisos (${response.status}).`);
             if (response.status === 401) {
                  logout();
                  throw new Error("Sesión expirada.");
             }
-            // En caso de 403, a veces es mejor avisar antes de sacar al usuario, 
-            // pero por seguridad cerramos sesión si intenta algo crítico.
-            // Para lectura (GET) el backend debería permitirlo (permitAll), así que 403 aquí es raro en loadData.
         }
 
         return response;
@@ -139,7 +130,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let isAdmin = false;
 
-        // Comprobación compatible con Spring Security y tu código anterior
         if (rolGuardado && (rolGuardado.includes('ADMIN') || rolGuardado.includes('VENDEDOR'))) {
             isAdmin = true;
         }
@@ -161,8 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadData() {
         showLoader("Cargando datos...");
         try {
-            // CORRECCIÓN: Usamos /productos (GET público) en lugar de /productos/admin/all
-            // Esto evita el 403 al cargar la lista.
+            // Usamos rutas públicas para leer
             const [catResponse, prodResponse] = await Promise.all([
                 fetchWithAuth(`${API_BASE_URL}/categorias`),
                 fetchWithAuth(`${API_BASE_URL}/productos`) 
@@ -221,10 +210,11 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const method = editingCategoryId ? 'PUT' : 'POST';
-        // Usamos ruta estándar RESTful. Asegúrate que tu backend soporte esto.
+        
+        // CORRECCIÓN: Agregar '/admin' a la ruta para operaciones de escritura
         const url = editingCategoryId 
-             ? `${API_BASE_URL}/categorias/${editingCategoryId}`
-             : `${API_BASE_URL}/categorias`;
+              ? `${API_BASE_URL}/categorias/admin/${editingCategoryId}`
+              : `${API_BASE_URL}/categorias/admin`;
 
         if(editingCategoryId) payload.id = editingCategoryId;
 
@@ -295,7 +285,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             if (prod.audAnulado) tr.classList.add('table-secondary', 'text-muted'); 
 
-            // Manejo seguro del objeto categoria
             const catName = prod.categoria ? (prod.categoria.categoria || 'Sin Cat') : 'N/A';
             const precio = prod.precio ? parseFloat(prod.precio).toFixed(2) : '0.00';
 
@@ -304,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="small text-truncate" style="max-width: 150px;">${prod.descripcion || ''}</td>
                 <td>S/ ${precio}</td>
                 <td>${prod.stock}</td>
-                <td><img src="${prod.imagen || 'img/placeholder.png'}" alt="img" style="width:40px; height:40px; object-fit:cover; border-radius:5px;"></td>
+                <td><img src="${prod.imagen || 'img/placeholder.png'}" alt="img" style="width:40px; height:40px; object-fit:cover; border-radius:5px;" onerror="this.src='icon/logo.png'"></td>
                 <td>
                     <button class="btn btn-sm btn-warning me-1 btn-edit-prod" data-id="${prod.id}">
                         <i class="bi bi-pencil"></i>
@@ -338,10 +327,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const method = editingProductId ? 'PUT' : 'POST';
         
-        // CORRECCIÓN URL: Endpoints estándar (/api/productos)
+        // CORRECCIÓN: Agregar '/admin' a la ruta para operaciones de escritura
         const url = editingProductId 
-            ? `${API_BASE_URL}/productos/${editingProductId}`
-            : `${API_BASE_URL}/productos`;
+            ? `${API_BASE_URL}/productos/admin/${editingProductId}`
+            : `${API_BASE_URL}/productos/admin`;
 
         if (editingProductId) payload.id = editingProductId;
 
@@ -414,15 +403,15 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let url, method, body;
 
-            // Lógica de eliminado lógico mediante PUT o DELETE
+            // CORRECCIÓN: Agregar '/admin' a la ruta para DELETE/PUT de estado
             if (isReactivating) {
                 method = 'PUT';
-                url = `${API_BASE_URL}/${type}/${id}`;
+                url = `${API_BASE_URL}/${type}/admin/${id}`;
                 const updatedItem = { ...item, audAnulado: false };
                 body = JSON.stringify(updatedItem);
             } else {
                 method = 'DELETE';
-                url = `${API_BASE_URL}/${type}/${id}`;
+                url = `${API_BASE_URL}/${type}/admin/${id}`;
             }
 
             const res = await fetchWithAuth(url, {

@@ -436,6 +436,70 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (generateReportBtn) {
+        generateReportBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            // 1. Obtener los datos filtrados actualmente (respetando las fechas seleccionadas)
+            const ordersToExport = getFilteredOrders(); 
+
+            if (ordersToExport.length === 0) {
+                alert("No hay órdenes para generar el reporte con los filtros actuales.");
+                return;
+            }
+
+            // 2. Definir los encabezados del Excel
+            // Usamos punto y coma (;) como separador, que es el estándar para Excel en español/Latinoamérica
+            let csvContent = "\uFEFF"; // BOM para que Excel reconozca tildes y caracteres especiales (UTF-8)
+            csvContent += "ID Orden;Cliente;Fecha;Estado;Total (S/)\n";
+
+            // 3. Recorrer las órdenes y crear las filas
+            ordersToExport.forEach(order => {
+                // Validación segura de datos para evitar errores si falta algo
+                const id = order.id || "";
+                
+                // Nombre del cliente (limpiamos posibles puntos y comas para no romper el formato)
+                let cliente = "Cliente Desconocido";
+                if (order.cliente) {
+                    cliente = `${order.cliente.nombre || ""} ${order.cliente.apellido || ""}`.trim();
+                }
+                // Quitamos saltos de línea o separadores del texto
+                cliente = cliente.replace(/;/g, " "); 
+
+                // Fecha formateada
+                const fechaRaw = order.fechaPedido || order.fecha_Pedido;
+                const fecha = fechaRaw ? new Date(fechaRaw).toLocaleString('es-PE') : "Sin Fecha";
+
+                // Estado
+                const estado = getEstadoDisplay(order.estadoActual);
+
+                // Total
+                const total = (order.total || 0).toFixed(2);
+
+                // Agregar la fila al contenido CSV
+                csvContent += `${id};"${cliente}";${fecha};${estado};${total}\n`;
+            });
+
+            // 4. Crear un nombre de archivo dinámico
+            const dateStr = new Date().toISOString().slice(0,10); // Ejemplo: 2025-02-14
+            const fileName = `Reporte_Ventas_${dateStr}.csv`;
+
+            // 5. Crear el Blob y forzar la descarga
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            
+            // Crear URL temporal
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", fileName);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click(); // Simular clic
+            document.body.removeChild(link); // Limpiar
+        });
+    }
+    
     // Inicializar
     fetchOrdersAndProducts();
 });

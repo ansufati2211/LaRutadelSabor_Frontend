@@ -1,22 +1,12 @@
 // js/vendedor.js
 
 // --- Funciones Auxiliares de Autenticación y API ---
-// (Incluidas para que este archivo sea autosuficiente)
-
-// Definir la URL base de tu API backend
 const API_BASE_URL = 'https://larutadelsaborbackend-production.up.railway.app/api';
-// Asegúrate que el puerto sea correcto
 
-/**
- * Función auxiliar para obtener el token JWT de localStorage
- */
 function getToken() {
     return localStorage.getItem('token');
 }
 
-/**
- * Función auxiliar para obtener los detalles del usuario de localStorage
- */
 function getUser() {
     try {
         return JSON.parse(localStorage.getItem('user'));
@@ -26,9 +16,6 @@ function getUser() {
     }
 }
 
-/**
- * Función auxiliar para realizar llamadas fetch con token de autorización
- */
 async function fetchWithAuth(url, options = {}) {
     const token = getToken();
     const headers = {
@@ -52,26 +39,22 @@ async function fetchWithAuth(url, options = {}) {
     }
 }
 
-/**
- * Función global de Logout para el panel de vendedor/POS
- */
 function logout() {
     console.log("Cerrando sesión de vendedor...");
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.href = 'login.html'; // Redirigir a login
+    window.location.href = 'login.html';
 }
 
-// --- Funciones Loader/Error (Implementa la parte visual si es necesario) ---
+// --- Funciones Loader/Error ---
 function showAdminLoader(message = "Procesando...") {
-    const loaderElement = document.getElementById('pos-loader'); // Asume un ID 'pos-loader'
+    const loaderElement = document.getElementById('pos-loader');
     if (loaderElement) {
         loaderElement.textContent = message;
         loaderElement.style.display = 'block';
     }
     console.log(message);
-    // Ocultar errores previos
-    const errorElement = document.getElementById('pos-error'); // Asume un ID 'pos-error'
+    const errorElement = document.getElementById('pos-error');
     if(errorElement) errorElement.style.display = 'none';
 }
 function hideAdminLoader() {
@@ -84,7 +67,7 @@ function showAdminError(message) {
         errorElement.textContent = message;
         errorElement.style.display = 'block';
     } else {
-        alert(message); // Fallback
+        alert(message);
     }
     console.error(message);
 }
@@ -93,32 +76,27 @@ function clearAdminError() {
     if (errorElement) errorElement.style.display = 'none';
 }
 
-
-// ASUNCIÓN: Chart y bootstrap están cargados globalmente.
-
 // ==========================================
-// GOOGLE PAY CONFIGURATION (Igual que en pago_detalles.js - ¡Reemplaza placeholders!)
+// GOOGLE PAY CONFIGURATION
 // ==========================================
-const merchantInfo = { merchantId: 'BCR2DN6T6W44S3MA', /*¡USA TU ID!*/ merchantName: 'La Ruta del Sabor' };
-const baseGooglePayRequest = { apiVersion: 2, apiVersionMinor: 0, allowedPaymentMethods: [{ type: 'CARD', parameters: { allowedAuthMethods: ["PAN_ONLY", "CRYPTOGRAM_3DS"], allowedCardNetworks: ["AMEX", "DISCOVER", "MASTERCARD", "VISA"] }, tokenizationSpecification: { type: 'PAYMENT_GATEWAY', parameters: { gateway: 'example', /*¡TU GATEWAY!*/ gatewayMerchantId: 'exampleGatewayMerchantId' /*¡TU ID GATEWAY!*/ } } }], merchantInfo };
+const merchantInfo = { merchantId: 'BCR2DN6T6W44S3MA', merchantName: 'La Ruta del Sabor' };
+const baseGooglePayRequest = { apiVersion: 2, apiVersionMinor: 0, allowedPaymentMethods: [{ type: 'CARD', parameters: { allowedAuthMethods: ["PAN_ONLY", "CRYPTOGRAM_3DS"], allowedCardNetworks: ["AMEX", "DISCOVER", "MASTERCARD", "VISA"] }, tokenizationSpecification: { type: 'PAYMENT_GATEWAY', parameters: { gateway: 'example', gatewayMerchantId: 'exampleGatewayMerchantId' } } }], merchantInfo };
 Object.freeze(baseGooglePayRequest);
 let paymentsClient = null;
 let googlePayToken = null;
-// Funciones getGooglePaymentsClient, deepCopy, onGooglePayLoaded, renderGooglePayButton, onGooglePaymentButtonClicked
-// (Son idénticas a las de pago_detalles.js, puedes moverlas a utils.js si prefieres)
-function getGooglePaymentsClient() { /* ... (código igual que en pago_detalles.js) ... */
+
+function getGooglePaymentsClient() {
     if (paymentsClient === null) { paymentsClient = new google.payments.api.PaymentsClient({ environment: 'TEST', merchantInfo: { merchantId: merchantInfo.merchantId, merchantName: merchantInfo.merchantName } }); } return paymentsClient;
 }
 const deepCopy = (obj) => JSON.parse(JSON.stringify(obj));
-function onGooglePayLoaded() { /* ... (código igual que en pago_detalles.js) ... */
+function onGooglePayLoaded() {
     const googlePayClient = getGooglePaymentsClient(); const readyToPayRequest = deepCopy(baseGooglePayRequest); googlePayClient.isReadyToPay(readyToPayRequest).then(function (response) { if (response.result) { console.log('Google Pay disponible en POS.'); } else { console.log('Google Pay no disponible en POS.'); const gpayOption = document.getElementById('gpay-option-container'); if (gpayOption) gpayOption.style.display = 'none'; } }).catch(function (err) { console.error('Error Google Pay check:', err); });
 }
-function renderGooglePayButton(totalAmount) { /* ... (código igual que en pago_detalles.js) ... */
+function renderGooglePayButton(totalAmount) {
     if (!paymentsClient) return; const container = document.getElementById('gpay-container'); if (!container) return; container.innerHTML = ''; const button = paymentsClient.createButton({ onClick: () => onGooglePaymentButtonClicked(totalAmount), buttonColor: 'black', buttonType: 'pay', buttonSizeMode: 'fill' }); container.appendChild(button); container.style.display = 'block'; container.classList.add('active');
 }
-function onGooglePaymentButtonClicked(totalAmount) { /* ... (código igual que en pago_detalles.js, excepto auto-confirmar) ... */
+function onGooglePaymentButtonClicked(totalAmount) {
     if (!paymentsClient) { alert("Error Google Pay."); return; }
-    // Validar si hay items en la orden
     if (ordenActual.length === 0) { alert("Añade productos a la orden."); return; }
 
     const transactionInfo = { countryCode: 'PE', currencyCode: 'PEN', totalPriceStatus: 'FINAL', totalPrice: totalAmount.toFixed(2), };
@@ -127,9 +105,8 @@ function onGooglePaymentButtonClicked(totalAmount) { /* ... (código igual que e
     paymentsClient.loadPaymentData(paymentDataRequest).then(function (paymentData) {
         console.log('Respuesta Google Pay (POS):', paymentData); const paymentToken = paymentData.paymentMethodData.tokenizationData.token; googlePayToken = paymentToken; console.log('Token Google Pay (POS) obtenido:', googlePayToken);
         const pagoExitosoDiv = document.getElementById('pagoExitoso'); const gpayContainer = document.getElementById('gpay-container'); const btnConfirmar = document.getElementById('btnConfirmarVenta');
-        if (pagoExitosoDiv) pagoExitosoDiv.style.display = 'block'; if (gpayContainer) gpayContainer.style.display = 'none'; if (btnConfirmar) btnConfirmar.disabled = false; // Habilitar confirmar
-        alert("Pago Google Pay autorizado. Confirma la venta."); // No auto-confirmar en POS
-        // setTimeout(() => { confirmarPago(); }, 1000); // Quitar auto-confirmar
+        if (pagoExitosoDiv) pagoExitosoDiv.style.display = 'block'; if (gpayContainer) gpayContainer.style.display = 'none'; if (btnConfirmar) btnConfirmar.disabled = false;
+        alert("Pago Google Pay autorizado. Confirma la venta.");
     }).catch(function (err) { console.error('Error Google Pay (POS):', err); if (err.statusCode !== 'CANCELED') { alert('Error al procesar Google Pay.'); } googlePayToken = null; });
 }
 
@@ -138,13 +115,13 @@ function onGooglePaymentButtonClicked(totalAmount) { /* ... (código igual que e
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     // Variables globales
-    let categories = []; // Categorías ACTIVAS
-    let products = [];   // Productos ACTIVOS
-    let ordenActual = []; // Items en la orden actual [{id, nombre, precio, cantidad, stock}]
-    let ordenSeleccionada = null; // Para ver detalle de órdenes pasadas
-    let ordenesDelDia = []; // Órdenes cargadas para la sección "Mis Órdenes" y Arqueo
+    let categories = [];
+    let products = [];
+    let ordenActual = [];
+    let ordenSeleccionada = null;
+    let ordenesDelDia = [];
 
-    // Elementos DOM (cachear)
+    // Elementos DOM
     const vendedorNombreEl = document.getElementById('vendedorNombre');
     const fechaActualEl = document.getElementById('fechaActual');
     const horaActualEl = document.getElementById('horaActual');
@@ -161,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pagoYapeDiv = document.getElementById('pagoYape');
     const montoRecibidoInput = document.getElementById('montoRecibido');
     const cambioMontoEl = document.getElementById('cambioMonto');
-    const nombreClienteInput = document.getElementById('nombreCliente'); // Input nombre en modal pago
+    const nombreClienteInput = document.getElementById('nombreCliente');
     const btnConfirmarVenta = document.getElementById('btnConfirmarVenta');
     const ordenesTableBodyEl = document.getElementById('ordenesTableBody');
     const totalOrdenesEl = document.getElementById('totalOrdenes');
@@ -173,34 +150,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const arqueTarjetaEl = document.getElementById('arqueTarjeta');
     const arqueYapeEl = document.getElementById('arqueYape');
     const arqueTotalCajaEl = document.getElementById('arqueTotalCaja');
-    const modalDetalleOrdenEl = document.getElementById('modalDetalleOrden'); // Elemento modal detalle
+    const modalDetalleOrdenEl = document.getElementById('modalDetalleOrden');
     const detalleOrdenBodyEl = document.getElementById('detalleOrdenBody');
 
-    // Instancias Modales Bootstrap
+    // Instancias Modales
     const modalPago = modalPagoEl ? new bootstrap.Modal(modalPagoEl) : null;
     const modalDetalleOrden = modalDetalleOrdenEl ? new bootstrap.Modal(modalDetalleOrdenEl) : null;
 
-    // Verificar elementos esenciales POS
     if (!vendedorNombreEl || !productosGridEl || !ordenItemsContainerEl || !totalEl || !modalPagoEl || !ordenesTableBodyEl || !arqueTotalCajaEl || !modalDetalleOrdenEl) {
         console.error("Error crítico: Faltan elementos HTML esenciales para el POS.");
         alert("Error al cargar la interfaz del POS.");
         return;
     }
 
-    // --- Validación de Acceso (MODIFICADO: Rol VENDEDOR) ---
+    // --- Validación de Acceso ---
     const token = getToken();
     const user = getUser();
     let userRole = null;
     if (user?.rol?.name) { userRole = user.rol.name.replace("ROLE_", ""); }
-    else if (user?.roles) { /* ... (lógica fallback como en admin.js) ... */
+    else if (user?.roles) {
         if (user.roles.includes("ROLE_VENDEDOR") || user.roles.some(r => r.authority === "ROLE_VENDEDOR")) userRole = "VENDEDOR";
-        else if (user.roles.includes("ROLE_ADMIN") || user.roles.some(r => r.authority === "ROLE_ADMIN")) userRole = "ADMIN"; // Permitir admin también?
+        else if (user.roles.includes("ROLE_ADMIN") || user.roles.some(r => r.authority === "ROLE_ADMIN")) userRole = "ADMIN";
     }
 
-    // Permitir VENDEDOR o ADMIN
     if (!token || !user || (userRole !== 'VENDEDOR' && userRole !== 'ADMIN')) {
         alert('Acceso denegado. Solo vendedores o administradores pueden acceder al POS.');
-        logout(); // Limpiar y redirigir
+        logout();
         return;
     }
     console.log(`Acceso POS verificado para rol: ${userRole}`);
@@ -211,21 +186,17 @@ document.addEventListener('DOMContentLoaded', () => {
     async function init() {
         mostrarNombreVendedor();
         actualizarFechaHora();
-        setInterval(actualizarFechaHora, 60000); // Actualizar hora cada minuto es suficiente
+        setInterval(actualizarFechaHora, 60000);
         await cargarDatos();
-        inicializarNavegacion(); // Configura tabs
+        inicializarNavegacion();
         configurarModalPago();
-        setupEventListenersGenerales(); // Añadir listeners globales (buscar, limpiar orden, etc.)
-        // Inicializar Google Pay (si el script se cargó)
+        setupEventListenersGenerales();
         if (typeof google !== 'undefined' && google.payments?.api) {
             onGooglePayLoaded();
-        } else {
-            console.warn("Google Pay API script no cargado o inicializado.");
         }
     }
 
     function mostrarNombreVendedor() {
-        // Usar Nombre y Apellido si existen
         const nombreMostrar = `${user.nombre || ''} ${user.apellido || ''}`.trim() || user.correo || 'Vendedor';
         if (vendedorNombreEl) vendedorNombreEl.textContent = nombreMostrar;
         if (arqueVendedorEl) arqueVendedorEl.textContent = nombreMostrar;
@@ -240,54 +211,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
-    // CARGA DE DATOS (MODIFICADO: usa /api/menu y /api/admin/pedidos)
+    // CARGA DE DATOS
     // ==========================================
     async function cargarDatos() {
-        showAdminLoader("Cargando datos iniciales..."); // Reutilizar loader
+        showAdminLoader("Cargando datos iniciales...");
         clearAdminError();
         try {
-            // Cargar Menú (categorías y productos activos) y Órdenes (todas para admin/vendedor)
             const [menuRes, ordersRes] = await Promise.all([
-                fetchWithAuth(`${API_BASE_URL}/menu`),       // Endpoint público con activos
-                fetchWithAuth(`${API_BASE_URL}/pedidos`) // Endpoint admin con todos (pedidos en lugar de pedido)
+                fetchWithAuth(`${API_BASE_URL}/menu`),
+                fetchWithAuth(`${API_BASE_URL}/admin/pedidos`)
             ]);
 
-            async function handleResponseError(response, entityName) { /* ... (igual que en admin.js) ... */
+            async function handleResponseError(response, entityName) {
                  if (!response.ok) { const errorData = await response.json().catch(() => ({ error: `Error ${response.status}: ${response.statusText}` })); throw new Error(`Error al cargar ${entityName}: ${errorData.error || response.statusText}`); } return response.json();
              }
 
-            // Procesar Menú
             const menuData = await handleResponseError(menuRes, "menú");
-            categories = menuData.filter(cat => !cat.audAnulado); // Filtrar categorías anuladas si vienen
+            categories = menuData.filter(cat => !cat.audAnulado);
             products = menuData.reduce((acc, cat) => {
                 if (!cat.audAnulado && cat.productos) {
-                    // Filtrar productos anulados y añadir referencia a categoría
                     cat.productos.forEach(p => {
                         if (!p.audAnulado) {
-                            p.categoria = { id: cat.id, nombre: cat.nombre }; // Añadir ref a categoría
+                            p.categoria = { id: cat.id, nombre: cat.nombre };
                             acc.push(p);
                         }
                     });
                 }
                 return acc;
             }, []);
-            console.log(`✅ Categorías activas cargadas: ${categories.length}`);
-            console.log(`✅ Productos activos cargados: ${products.length}`);
+            
+            ordenesDelDia = await handleResponseError(ordersRes, "órdenes");
 
-            // Procesar Órdenes
-            ordenesDelDia = await handleResponseError(ordersRes, "órdenes"); // Guardar todas para arqueo
-            console.log(`✅ Todas las órdenes cargadas: ${ordenesDelDia.length}`);
-
-
-            // Renderizar UI inicial
             renderizarCategorias();
-            // Mostrar todos los productos activos al inicio
-            const allActiveProducts = products; // 'products' ya contiene solo activos
-            renderizarProductos(allActiveProducts);
-            // Cargar órdenes de hoy en la tabla "Mis Órdenes"
-            cargarOrdenesDelDiaUI(ordenesDelDia); // Nueva función UI
-            // Calcular y mostrar arqueo inicial
-            calcularYMostrarArqueo(ordenesDelDia); // Nueva función UI
+            renderizarProductos(products);
+            cargarOrdenesDelDiaUI(ordenesDelDia);
+            calcularYMostrarArqueo(ordenesDelDia);
 
         } catch (error) {
             console.error('Error al cargar datos iniciales:', error);
@@ -298,26 +256,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
-    // NUEVA VENTA - PRODUCTOS (MODIFICADO: usa 'id' y campos Java)
+    // NUEVA VENTA - PRODUCTOS
     // ==========================================
     function renderizarCategorias() {
         if (!categoriasFiltroEl) return;
-        categoriasFiltroEl.innerHTML = ''; // Limpiar
+        categoriasFiltroEl.innerHTML = '';
 
-        // Botón "Todo"
         const btnTodo = document.createElement('button');
-        btnTodo.className = 'btn-categoria active'; // Activo por defecto
+        btnTodo.className = 'btn-categoria active';
         btnTodo.dataset.categoria = 'todo';
         btnTodo.innerHTML = `🍽️ Todo`;
         btnTodo.onclick = () => filtrarPorCategoria('todo');
         categoriasFiltroEl.appendChild(btnTodo);
 
-
-        categories.forEach(cat => { // 'categories' ya está filtrado (activos)
+        categories.forEach(cat => {
             const btn = document.createElement('button');
             btn.className = 'btn-categoria';
-            btn.dataset.categoria = cat.id; // Usar ID numérico
-            btn.innerHTML = `${cat.icono || '📁'} ${cat.nombre || 'N/A'}`; // Usar 'nombre'
+            btn.dataset.categoria = cat.id;
+            btn.innerHTML = `${cat.icono || '📁'} ${cat.nombre || 'N/A'}`;
             btn.onclick = () => filtrarPorCategoria(cat.id);
             categoriasFiltroEl.appendChild(btn);
         });
@@ -330,11 +286,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let productosFiltrados;
         if (categoriaId === 'todo') {
             document.querySelector('[data-categoria="todo"]').classList.add('active');
-            productosFiltrados = products; // 'products' ya contiene solo activos
+            productosFiltrados = products;
         } else {
             const btnSelected = document.querySelector(`[data-categoria="${categoriaId}"]`);
             if (btnSelected) btnSelected.classList.add('active');
-            // Filtrar productos por el ID de categoría anidado
             productosFiltrados = products.filter(p => p.categoria?.id === categoriaId);
         }
         renderizarProductos(productosFiltrados);
@@ -350,67 +305,66 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         productosArray.forEach(producto => {
-            // Renderizar solo si no está anulado (doble check) y tiene stock > 0
-            if (producto.audAnulado || producto.stock <= 0) return;
+            // Permitir stock indefinido para pruebas (cambiar luego)
+            const tieneStock = (producto.stock !== undefined && producto.stock > 0) || true;
+            if (producto.audAnulado || !tieneStock) return;
 
             const card = document.createElement('div');
-            card.className = 'producto-card cursor-pointer hover:shadow-lg transition-shadow duration-200'; // Clases ejemplo
+            card.className = 'producto-card cursor-pointer hover:shadow-lg transition-shadow duration-200';
             card.innerHTML = `
                 <img src="${producto.imagen || 'icon/logo.png'}" alt="${producto.nombre || ''}" class="w-full h-32 object-cover" onerror="this.src='icon/logo.png';">
                 <div class="p-2">
                     <h4 class="text-sm font-semibold truncate">${producto.nombre || 'N/A'}</h4>
                     <p class="precio text-base font-bold text-orange-600">S/ ${(producto.precio || 0).toFixed(2)}</p>
-                    </div>
+                    <small class="text-muted" style="font-size: 0.75rem">Stock: ${producto.stock !== undefined ? producto.stock : 'N/A'}</small>
+                </div>
             `;
             card.onclick = () => agregarAOrden(producto);
             productosGridEl.appendChild(card);
         });
     }
 
-    // Listener para búsqueda (sin cambios funcionales)
     if (buscarProductoInput) {
         buscarProductoInput.addEventListener('input', (e) => {
             const termino = e.target.value.toLowerCase().trim();
             const productosFiltrados = products.filter(p =>
-                !p.audAnulado && // Solo buscar en activos
-                p.producto.toLowerCase().includes(termino) // Usar 'producto' (nombre Java)
+                !p.audAnulado &&
+                p.nombre.toLowerCase().includes(termino) // Usar nombre del DTO
             );
             renderizarProductos(productosFiltrados);
-            // Desmarcar categoría si se está buscando
             document.querySelectorAll('.btn-categoria').forEach(btn => btn.classList.remove('active'));
         });
     }
 
-
     // ==========================================
-    // CARRITO - ORDEN ACTUAL (MODIFICADO: usa 'id', campos Java, valida stock)
+    // CARRITO - ORDEN ACTUAL
     // ==========================================
     function agregarAOrden(producto) {
-        if (!producto || producto.stock === undefined || producto.stock <= 0) {
-            alert(`${producto?.nombre || 'El producto'} está agotado o no disponible.`);
+        // Validación de stock más flexible por si el backend no lo envía
+        const stockDisponible = producto.stock !== undefined ? producto.stock : 999;
+        
+        if (!producto || stockDisponible <= 0) {
+            alert(`${producto?.nombre || 'El producto'} está agotado.`);
             return;
         }
 
-        // Buscar por 'id'
         const existenteIndex = ordenActual.findIndex(item => item.id === producto.id);
 
         if (existenteIndex > -1) {
             const itemActual = ordenActual[existenteIndex];
-            // Validar stock antes de incrementar
-            if (itemActual.cantidad >= producto.stock) {
-                alert(`No puedes agregar más ${producto.nombre}. Stock máximo (${producto.stock}) alcanzado en el carrito.`);
+            if (itemActual.cantidad >= stockDisponible) {
+                alert(`Stock máximo (${stockDisponible}) alcanzado para ${producto.nombre}.`);
                 return;
             }
             itemActual.cantidad++;
         } else {
-            // Usar 'id' y campos Java ('producto', 'precio', 'imagen', 'stock')
             ordenActual.push({
                 id: producto.id,
-                nombre: producto.producto, // Campo 'producto' de la entidad
+                nombre: producto.nombre, // Usar nombre del DTO
                 precio: producto.precio,
                 imagen: producto.imagen,
                 cantidad: 1,
-                stock: producto.stock // Guardar stock para validaciones
+                stock: stockDisponible
             });
         }
         renderizarOrden();
@@ -421,14 +375,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (ordenActual.length === 0) {
             ordenItemsContainerEl.innerHTML = '<p class="text-muted text-center py-4">Orden vacía</p>';
-            actualizarTotales(); // Asegura que totales sean 0.00
+            actualizarTotales();
             return;
         }
 
         ordenItemsContainerEl.innerHTML = '';
         ordenActual.forEach((item, index) => {
             const div = document.createElement('div');
-            div.className = 'orden-item flex justify-between items-center py-2 border-b'; // Clases ejemplo
+            div.className = 'orden-item flex justify-between items-center py-2 border-b';
             div.innerHTML = `
                 <div class="item-info flex-grow mr-2">
                     <h5 class="text-sm font-semibold truncate">${item.nombre}</h5>
@@ -452,7 +406,6 @@ document.addEventListener('DOMContentLoaded', () => {
         actualizarTotales();
     }
 
-    // NUEVO: Listener centralizado para acciones en la orden actual
     if (ordenItemsContainerEl) {
         ordenItemsContainerEl.addEventListener('click', (e) => {
             const button = e.target.closest('button[data-index]');
@@ -461,33 +414,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const index = parseInt(button.dataset.index, 10);
             const action = button.dataset.action;
 
-            if (isNaN(index) || index < 0 || index >= ordenActual.length) {
-                console.error("Índice inválido en acción de orden:", index);
-                return;
-            }
+            if (isNaN(index) || index < 0 || index >= ordenActual.length) return;
 
-            if (action === 'increase') {
-                cambiarCantidad(index, 1);
-            } else if (action === 'decrease') {
-                cambiarCantidad(index, -1);
-            } else if (action === 'remove') {
-                eliminarItem(index);
-            }
+            if (action === 'increase') cambiarCantidad(index, 1);
+            else if (action === 'decrease') cambiarCantidad(index, -1);
+            else if (action === 'remove') eliminarItem(index);
         });
     }
-
 
     function cambiarCantidad(index, cambio) {
         const item = ordenActual[index];
         const nuevaCantidad = item.cantidad + cambio;
 
         if (nuevaCantidad <= 0) {
-            eliminarItem(index); // Eliminar si la cantidad llega a 0 o menos
+            eliminarItem(index);
         } else if (nuevaCantidad > item.stock) {
-            alert(`No puedes agregar más ${item.nombre}. Stock máximo (${item.stock}) alcanzado.`);
+            alert(`Stock máximo (${item.stock}) alcanzado.`);
         } else {
             item.cantidad = nuevaCantidad;
-            renderizarOrden(); // Re-renderizar para actualizar subtotal y botones
+            renderizarOrden();
         }
     }
 
@@ -501,12 +446,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function actualizarTotales() {
         const subtotal = ordenActual.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
         if (subtotalEl) subtotalEl.textContent = `S/ ${subtotal.toFixed(2)}`;
-        if (totalEl) totalEl.textContent = `S/ ${subtotal.toFixed(2)}`; // POS no tiene costo de envío
+        if (totalEl) totalEl.textContent = `S/ ${subtotal.toFixed(2)}`;
     }
 
-    // Listener para botón Limpiar Orden y otros
     function setupEventListenersGenerales() {
-        const btnLimpiar = document.getElementById('btnLimpiarOrden'); // Asegúrate que el botón tenga este ID
+        const btnLimpiar = document.getElementById('btnLimpiarOrden');
         if (btnLimpiar) {
             btnLimpiar.addEventListener('click', () => {
                 if (ordenActual.length > 0 && confirm('¿Deseas limpiar la orden actual?')) {
@@ -515,75 +459,66 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-        const btnAbrirPago = document.getElementById('btnAbrirModalPago'); // Asegúrate que el botón tenga este ID
+        const btnAbrirPago = document.getElementById('btnAbrirModalPago');
         if (btnAbrirPago) {
             btnAbrirPago.addEventListener('click', abrirModalPago);
         }
-        // Listener para imprimir arqueo
-        const btnImprimirArqueo = document.getElementById('btnImprimirArqueo'); // Asegúrate que el botón tenga este ID
+        const btnImprimirArqueo = document.getElementById('btnImprimirArqueo');
         if (btnImprimirArqueo) {
             btnImprimirArqueo.addEventListener('click', imprimirArqueo);
         }
-        // Listener para logout
-        const btnLogout = document.getElementById('pos-logout-button'); // Asigna ID al botón logout del POS
+        const btnLogout = document.getElementById('pos-logout-button');
         if (btnLogout) {
              btnLogout.addEventListener('click', (e) => {
                  e.preventDefault();
                  if (confirm("¿Seguro que deseas cerrar sesión?")) {
-                     logout(); // Llama a la función global
+                     logout();
                  }
              });
         }
     }
 
-
     // ==========================================
-    // MODAL DE PAGO (MODIFICADO: Simplificado para POS, usa /api/ordenes)
+    // MODAL DE PAGO
     // ==========================================
     function configurarModalPago() {
-        if (!metodoPagoSelect) return; // Salir si no hay modal de pago
+        if (!metodoPagoSelect) return;
 
         metodoPagoSelect.addEventListener('change', (e) => {
-            // Ocultar secciones
             if (pagoEfectivoDiv) pagoEfectivoDiv.style.display = 'none';
             if (pagoTarjetaDiv) pagoTarjetaDiv.style.display = 'none';
             if (pagoYapeDiv) pagoYapeDiv.style.display = 'none';
             const pagoExitosoDiv = document.getElementById('pagoExitoso'); if (pagoExitosoDiv) pagoExitosoDiv.style.display = 'none';
-            const gpayContainer = document.getElementById('gpay-container'); if (gpayContainer) gpayContainer.style.display = 'none'; // Ocultar GPay por defecto
+            const gpayContainer = document.getElementById('gpay-container'); if (gpayContainer) gpayContainer.style.display = 'none';
             googlePayToken = null;
 
             const metodo = e.target.value;
             const total = ordenActual.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
 
-            if (btnConfirmarVenta) btnConfirmarVenta.disabled = false; // Habilitado por defecto
+            if (btnConfirmarVenta) btnConfirmarVenta.disabled = false;
 
             if (metodo === 'efectivo') {
                 if (pagoEfectivoDiv) pagoEfectivoDiv.style.display = 'block';
-                if (montoRecibidoInput) montoRecibidoInput.focus(); // Enfocar monto recibido
+                if (montoRecibidoInput) montoRecibidoInput.focus();
             } else if (metodo === 'tarjeta') {
                 if (pagoTarjetaDiv) pagoTarjetaDiv.style.display = 'block';
                 const montoTarjetaEl = document.getElementById('montoTarjeta');
                 if (montoTarjetaEl) montoTarjetaEl.textContent = `S/ ${total.toFixed(2)}`;
-                if (btnConfirmarVenta) btnConfirmarVenta.disabled = true; // Deshabilitar hasta que GPay complete
+                if (btnConfirmarVenta) btnConfirmarVenta.disabled = true;
 
-                // Renderizar botón Google Pay (si está disponible)
                 if (paymentsClient) {
-                     // Retraso leve para asegurar que el div esté visible
                     setTimeout(() => { renderGooglePayButton(total); }, 100);
                 } else {
-                    console.warn("Google Pay no está listo, opción tarjeta no disponible vía GPay.");
-                    // Podrías habilitar campos manuales aquí si tuvieras un POS físico
+                    console.warn("Google Pay no está listo.");
                 }
 
-            } else if (metodo === 'yape') { // Asumiendo Yape/Plin
+            } else if (metodo === 'yape') {
                 if (pagoYapeDiv) pagoYapeDiv.style.display = 'block';
                 const montoYapeEl = document.getElementById('montoYape');
                 if (montoYapeEl) montoYapeEl.textContent = `S/ ${total.toFixed(2)}`;
-                // Aquí podrías mostrar el QR o número para Yape/Plin
             }
         });
 
-        // Calcular cambio en efectivo
         if (montoRecibidoInput) {
             montoRecibidoInput.addEventListener('input', (e) => {
                 const total = ordenActual.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
@@ -593,7 +528,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Listener para confirmar venta
         if (btnConfirmarVenta) {
             btnConfirmarVenta.addEventListener('click', confirmarPago);
         }
@@ -604,20 +538,15 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Agrega productos a la orden primero.');
             return;
         }
-        if (!modalPago) {
-            console.error("Modal de pago no encontrado.");
-            return;
-        }
-
+        if (!modalPago) return;
 
         const total = ordenActual.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
-        // Resetear modal
         const pagoTotalEl = document.getElementById('pagoTotal'); if (pagoTotalEl) pagoTotalEl.textContent = `S/ ${total.toFixed(2)}`;
-        if (metodoPagoSelect) metodoPagoSelect.value = 'efectivo'; // Default a efectivo
-        if (nombreClienteInput) nombreClienteInput.value = ''; // Limpiar nombre cliente
+        if (metodoPagoSelect) metodoPagoSelect.value = 'efectivo';
+        if (nombreClienteInput) nombreClienteInput.value = '';
         if (montoRecibidoInput) montoRecibidoInput.value = '';
         if (cambioMontoEl) cambioMontoEl.textContent = 'S/ 0.00';
-        if (pagoEfectivoDiv) pagoEfectivoDiv.style.display = 'block'; // Mostrar efectivo por defecto
+        if (pagoEfectivoDiv) pagoEfectivoDiv.style.display = 'block';
         if (pagoTarjetaDiv) pagoTarjetaDiv.style.display = 'none';
         if (pagoYapeDiv) pagoYapeDiv.style.display = 'none';
         const pagoExitosoDiv = document.getElementById('pagoExitoso'); if (pagoExitosoDiv) pagoExitosoDiv.style.display = 'none';
@@ -628,17 +557,12 @@ document.addEventListener('DOMContentLoaded', () => {
         modalPago.show();
     };
 
-    /**
-     * MODIFICADO: Confirma el pago y envía la orden al backend /api/ordenes.
-     */
     async function confirmarPago() {
         const metodoPago = metodoPagoSelect.value;
-        // Nombre es opcional, si no se pone, usar "Cliente General"
         const nombreClienteInputVal = nombreClienteInput ? nombreClienteInput.value.trim() : '';
         const nombreClienteFinal = nombreClienteInputVal || 'Cliente General';
         const total = ordenActual.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
 
-        // Validaciones
         if (metodoPago === 'efectivo') {
             const montoRecibido = parseFloat(montoRecibidoInput.value);
             if (isNaN(montoRecibido) || montoRecibido < total) {
@@ -646,9 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
         } else if (metodoPago === 'tarjeta' && !googlePayToken) {
-            // Si no es GPay, ¿hay POS físico? Si no, no se puede confirmar.
-            // alert('Pago con tarjeta requiere Google Pay o POS físico.'); // Descomentar si no hay POS físico
-            alert('Completa el pago con Google Pay o selecciona otro método.'); // Asumiendo solo GPay por ahora
+            alert('Completa el pago con Google Pay o selecciona otro método.');
             return;
         }
 
@@ -656,44 +578,30 @@ document.addEventListener('DOMContentLoaded', () => {
             btnConfirmarVenta.disabled = true;
             btnConfirmarVenta.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Confirmando...';
         }
-        clearAdminError(); // Limpiar errores
+        clearAdminError();
 
-        // --- Construir payload para OrdenRequestDTO ---
-        // Nota: En POS, no tenemos todos los datos de cliente/entrega como en la web.
-        // El backend debe poder manejar una versión simplificada o asignar defaults.
         const ordenData = {
             items: ordenActual.map(item => ({
-                productoId: item.id, // ID del backend
+                productoId: item.id,
                 cantidad: item.cantidad
             })),
-            // Enviar datos mínimos de cliente para POS
             nombreCliente: nombreClienteFinal,
-            apellidoCliente: "", // Asumir vacío o extraer de nombreClienteFinal si es posible
-            correoCliente: null, // No lo pedimos en POS
-            telefonoCliente: null, // No lo pedimos en POS
-            tipoComprobante: "Boleta", // Default a Boleta para POS (o añadir opción)
+            apellidoCliente: "",
+            correoCliente: null,
+            telefonoCliente: null,
+            tipoComprobante: "Boleta",
             dniCliente: null,
-
-            // Datos de entrega (asumir Recojo en Local para POS)
             tipoEntrega: "Recojo en Local",
             direccionEntrega: null,
             referenciaEntrega: null,
-
-            // Datos de Pago
-            metodoPago: metodoPago.charAt(0).toUpperCase() + metodoPago.slice(1), // Capitalizar: "Efectivo", "Tarjeta", "Yape"
+            metodoPago: metodoPago.charAt(0).toUpperCase() + metodoPago.slice(1),
             ...(metodoPago === 'tarjeta' && googlePayToken && {
                 googlePayToken: googlePayToken
-            }),
-            ...(metodoPago === 'yape' && {
-                // numeroYape: '999888777' // ¿Necesita el backend el número Yape para POS?
             })
-            // No enviar datos de tarjeta manuales desde POS (a menos que tengas integración segura)
         };
 
-        console.log('Enviando orden POS al backend:', JSON.stringify(ordenData, null, 2));
-
         try {
-            const response = await fetchWithAuth(`${API_BASE_URL}/ordenes`, { // Llama al endpoint estándar de crear orden
+            const response = await fetchWithAuth(`${API_BASE_URL}/ordenes`, {
                 method: 'POST',
                 body: JSON.stringify(ordenData)
             });
@@ -702,17 +610,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok) {
                 alert('¡Venta realizada con éxito! Orden ID: ' + result.pedidoId);
-                ordenActual = []; // Limpiar orden actual
+                ordenActual = [];
                 googlePayToken = null;
-                renderizarOrden(); // Actualizar UI carrito
+                renderizarOrden();
                 
-                // Recargar órdenes y recalcular arqueo
+                // Actualizar inmediatamente la lista de órdenes
                 const updatedOrders = await fetchOrdenesActualizadas();
-                ordenesDelDia = updatedOrders; // Actualizar la variable global
+                ordenesDelDia = updatedOrders;
                 cargarOrdenesDelDiaUI(updatedOrders); 
                 calcularYMostrarArqueo(updatedOrders); 
 
-                modalPago.hide(); // Ocultar modal
+                modalPago.hide();
 
             } else {
                 throw new Error(result.error || `Error ${response.status}`);
@@ -721,7 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Error al confirmar venta POS:', error);
             showAdminError('Error al procesar la venta: ' + error.message);
         } finally {
-            if (btnConfirmarVenta) { // Habilitar botón de nuevo
+            if (btnConfirmarVenta) {
                 btnConfirmarVenta.disabled = false;
                 btnConfirmarVenta.textContent = 'Confirmar Venta';
             }
@@ -729,42 +637,55 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ==========================================
-    // MIS ÓRDENES (MODIFICADO: usa datos backend)
+    // MIS ÓRDENES (CORREGIDO)
     // ==========================================
-    // NUEVO: Función para recargar órdenes desde el backend
     async function fetchOrdenesActualizadas() {
         try {
-            const response = await fetchWithAuth(`${API_BASE_URL}/pedidos`);
+            const response = await fetchWithAuth(`${API_BASE_URL}/admin/pedidos`);
             if (!response.ok) throw new Error("No se pudieron recargar las órdenes");
             return await response.json();
         } catch (error) {
             console.error("Error recargando órdenes:", error);
-            return ordenesDelDia; // Devuelve las órdenes antiguas si falla
+            return ordenesDelDia;
         }
     }
 
-
-    // MODIFICADO: Renderiza órdenes de HOY desde el array global 'ordenesDelDia'
     function cargarOrdenesDelDiaUI(todasLasOrdenes) {
         if (!ordenesTableBodyEl) return;
 
-        const hoyStr = new Date().toISOString().split('T')[0];
+        // Obtener fecha local en formato YYYY-MM-DD
+        const hoy = new Date();
+        const hoyStr = hoy.getFullYear() + '-' +
+                       String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
+                       String(hoy.getDate()).padStart(2, '0');
+
+        console.log("Filtrando órdenes para la fecha local:", hoyStr);
+
         const ordenesFiltradasHoy = (todasLasOrdenes || []).filter(orden => {
+            // INTENTO DE OBTENER LA FECHA: Soporta camelCase (Java default) o snake_case
+            const fechaRaw = orden.fechaPedido || orden.fecha_Pedido || orden.createdAt;
+
+            if (!fechaRaw) return false; // Si no hay fecha, ignorar
+
             try {
-                // Usar fecha_Pedido y comparar solo la fecha
-                return orden.fecha_Pedido && new Date(orden.fecha_Pedido).toISOString().split('T')[0] === hoyStr;
+                const fechaOrden = new Date(fechaRaw);
+                // Convertir fecha de orden a local YYYY-MM-DD para comparar
+                const fechaOrdenStr = fechaOrden.getFullYear() + '-' +
+                                      String(fechaOrden.getMonth() + 1).padStart(2, '0') + '-' +
+                                      String(fechaOrden.getDate()).padStart(2, '0');
+
+                return fechaOrdenStr === hoyStr;
             } catch (e) {
-                console.warn("Fecha inválida en orden al filtrar:", orden.id, orden.fecha_Pedido);
+                console.warn("Fecha inválida en orden:", orden);
                 return false;
             }
         });
 
-        console.log(`Órdenes de hoy para UI: ${ordenesFiltradasHoy.length}`);
-        renderizarOrdenesTabla(ordenesFiltradasHoy); // Llama a la función de renderizado
-        actualizarEstadisticas(ordenesFiltradasHoy); // Actualiza contadores
+        console.log(`Órdenes de hoy encontradas: ${ordenesFiltradasHoy.length}`);
+        renderizarOrdenesTabla(ordenesFiltradasHoy);
+        actualizarEstadisticas(ordenesFiltradasHoy);
     }
 
-    // MODIFICADO: Renderiza la tabla con datos del backend
     function renderizarOrdenesTabla(ordenes) {
         if (!ordenesTableBodyEl) return;
         ordenesTableBodyEl.innerHTML = '';
@@ -774,16 +695,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        ordenes.forEach(orden => {
-            const fechaOrden = new Date(orden.fecha_Pedido);
+        // Ordenar las órdenes de más reciente a más antigua
+        const ordenesOrdenadas = [...ordenes].sort((a, b) => {
+             const fechaA = new Date(a.fechaPedido || a.fecha_Pedido || a.createdAt);
+             const fechaB = new Date(b.fechaPedido || b.fecha_Pedido || b.createdAt);
+             return fechaB - fechaA; 
+        });
+
+        ordenesOrdenadas.forEach(orden => {
+            const fechaRaw = orden.fechaPedido || orden.fecha_Pedido || orden.createdAt;
+            const fechaOrden = new Date(fechaRaw);
             const hora = fechaOrden.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-            // Nombre del cliente anidado
             const nombreCliente = `${orden.cliente?.nombre || ''} ${orden.cliente?.apellido || 'General'}`.trim();
-            // Estado actual
             const estadoDisplay = getEstadoDisplay(orden.estadoActual);
 
             const tr = document.createElement('tr');
-            // Marcar anuladas si aplica
             if (orden.audAnulado) {
                 tr.classList.add('opacity-50', 'bg-gray-100', 'anulado');
                 tr.title = "Orden Anulada";
@@ -804,14 +730,12 @@ document.addEventListener('DOMContentLoaded', () => {
             ordenesTableBodyEl.appendChild(tr);
         });
 
-        // Añadir listener para ver detalles (delegation)
         setupMisOrdenesListeners();
     }
 
-    // NUEVO: Asignar clase de badge según estado
     function getBadgeClass(estadoBackend) {
         switch (estadoBackend) {
-            case 'RECIBIDO': return 'bg-secondary text-white'; // O bg-warning
+            case 'RECIBIDO': return 'bg-secondary text-white';
             case 'EN_PREPARACION': return 'bg-info text-dark';
             case 'EN_RUTA': return 'bg-primary text-white';
             case 'ENTREGADO': return 'bg-success text-white';
@@ -819,28 +743,27 @@ document.addEventListener('DOMContentLoaded', () => {
             default: return 'bg-light text-dark';
         }
     }
+    
+    // Función auxiliar para mostrar estados legibles
+    function getEstadoDisplay(estado) {
+        if (!estado) return 'Desconocido';
+        return estado.replace(/_/g, ' '); // Reemplaza guiones bajos por espacios
+    }
 
-    // NUEVO: Listeners para tabla "Mis Órdenes"
     function setupMisOrdenesListeners() {
         if (!ordenesTableBodyEl._listenersAttached) {
             ordenesTableBodyEl.addEventListener('click', (e) => {
                 const viewBtn = e.target.closest('.action-view-order[data-order-id]');
-                // const toggleBtn = e.target.closest('.action-toggle-order[data-id]'); // Si añades anular/reactivar
-
                 if (viewBtn) {
                     const orderId = parseInt(viewBtn.dataset.orderId, 10);
-                    verDetalleOrden(orderId); // Llama a la función para mostrar modal
+                    verDetalleOrden(orderId);
                 }
-                // else if (toggleBtn) { ... } // Lógica para anular/reactivar
             });
             ordenesTableBodyEl._listenersAttached = true;
         }
     }
 
-
-    // MODIFICADO: Actualiza contadores
     function actualizarEstadisticas(ordenes) {
-        // Contar solo órdenes NO anuladas para estadísticas de venta
         const ordenesActivas = ordenes.filter(o => !o.audAnulado);
         const totalOrdenesHoy = ordenesActivas.length;
         const ventasHoy = ordenesActivas.reduce((sum, orden) => sum + (orden.total || 0), 0);
@@ -849,25 +772,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ventasHoyEl) ventasHoyEl.textContent = `S/ ${ventasHoy.toFixed(2)}`;
     }
 
-    /**
-     * MODIFICADO: Busca la orden por ID (localmente primero, luego backend si es necesario) y muestra el modal.
-     */
     async function verDetalleOrden(ordenId) {
-        console.log(`Buscando detalles para orden ID: ${ordenId}`);
         if (!modalDetalleOrden) return;
-
-        // Buscar en las órdenes ya cargadas
         ordenSeleccionada = ordenesDelDia.find(o => o.id === ordenId);
 
         if (ordenSeleccionada) {
-            console.log("Mostrando detalles desde datos locales:", ordenSeleccionada);
             mostrarDetalleOrden(ordenSeleccionada);
         } else {
-            // Si no está en la lista local (poco probable), intentar buscarla en el backend
-            console.warn(`Orden ${ordenId} no encontrada localmente, buscando en backend...`);
             showAdminLoader("Cargando detalle...");
             try {
-                // Usar endpoint de admin para ver cualquier orden (asume permisos)
                 const response = await fetchWithAuth(`${API_BASE_URL}/pedidos/${ordenId}`);
                 if (!response.ok) throw new Error("Orden no encontrada en el servidor.");
                 ordenSeleccionada = await response.json();
@@ -880,26 +793,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     };
-    // Hacer global para onclick
     window.verDetalleOrden = verDetalleOrden;
 
-
-    /**
-     * MODIFICADO: Muestra los detalles de la orden en el modal, usando datos del backend.
-     */
     function mostrarDetalleOrden(orden) {
         if (!detalleOrdenBodyEl || !orden) return;
 
-        const items = orden.detalles || []; // Usar 'detalles'
+        const items = orden.detalles || [];
         const nombreCliente = `${orden.cliente?.nombre || ''} ${orden.cliente?.apellido || 'General'}`.trim();
-        const fechaOrden = new Date(orden.fecha_Pedido || orden.createdAt); // Usar fecha_Pedido
-        const metodoPagoTexto = orden.pago?.metodo_Pago || orden.metodoPago || 'No especificado'; // Intentar obtener de entidad Pago
+        const fechaRaw = orden.fechaPedido || orden.fecha_Pedido || orden.createdAt;
+        const fechaOrden = new Date(fechaRaw);
+        
+        const metodoPagoTexto = orden.pago?.metodo_Pago || orden.metodoPago || 'No especificado';
         const estadoDisplay = getEstadoDisplay(orden.estadoActual);
 
-        console.log('Mostrando detalle para orden:', orden);
-        console.log('Items:', items);
-
-        // Rellenar modal
         detalleOrdenBodyEl.innerHTML = `
             <div class="orden-detalle p-3">
               <h5>Orden #${orden.id} ${orden.audAnulado ? '<span class="badge bg-danger ms-2">ANULADA</span>' : ''}</h5>
@@ -913,13 +819,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <thead><tr><th>Producto</th><th>Cant.</th><th>P. Unit.</th><th>Subtotal</th></tr></thead>
                 <tbody>
                   ${items.length > 0 ? items.map(item => {
-            // Validar item y producto anidado
             if (!item || !item.producto || item.cantidad === undefined || item.subtotal === undefined) {
                 return '<tr><td colspan="4">Error en item</td></tr>';
             }
             const nombreProducto = item.producto.producto || 'Producto';
-            const precioUnitario = item.producto.precio || 0; // Precio unitario del producto
-            // Subtotal ya viene calculado en el item
+            const precioUnitario = item.producto.precio || 0;
             return `
                     <tr>
                       <td>${nombreProducto}</td>
@@ -946,61 +850,64 @@ document.addEventListener('DOMContentLoaded', () => {
 
             </div>`;
 
-        modalDetalleOrden.show(); // Mostrar modal Bootstrap
+        modalDetalleOrden.show();
     }
 
     // ==========================================
-    // ARQUEO DE CAJA (MODIFICADO: usa datos backend)
+    // ARQUEO DE CAJA (CORREGIDO)
     // ==========================================
-    // MODIFICADO: Llama a calcularYMostrarArqueo con las órdenes ya cargadas
     async function cargarArqueoCaja() {
-        // Ya no necesita fetch aquí, usa ordenesDelDia cargadas en init()
-        console.log("Calculando arqueo con órdenes ya cargadas...");
         calcularYMostrarArqueo(ordenesDelDia);
     }
 
-    // MODIFICADO: Calcula arqueo desde la lista de órdenes del backend
     function calcularYMostrarArqueo(todasLasOrdenes) {
-        if (!arqueNumOrdenesEl) return; // Salir si no está la sección de arqueo
+        if (!arqueNumOrdenesEl) return;
 
-        const hoyStr = new Date().toISOString().split('T')[0];
-        // Filtrar órdenes de hoy y que NO estén anuladas
+        // Obtener fecha local en formato YYYY-MM-DD
+        const hoy = new Date();
+        const hoyStr = hoy.getFullYear() + '-' +
+                       String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
+                       String(hoy.getDate()).padStart(2, '0');
+
         const ordenesHoyActivas = (todasLasOrdenes || []).filter(orden => {
             if (orden.audAnulado) return false;
+            
+            // INTENTO DE OBTENER LA FECHA (Igual que en Mis Órdenes)
+            const fechaRaw = orden.fechaPedido || orden.fecha_Pedido || orden.createdAt;
+            if (!fechaRaw) return false;
+
             try {
-                return orden.fecha_Pedido && new Date(orden.fecha_Pedido).toISOString().split('T')[0] === hoyStr;
+                const fechaOrden = new Date(fechaRaw);
+                const fechaOrdenStr = fechaOrden.getFullYear() + '-' +
+                                      String(fechaOrden.getMonth() + 1).padStart(2, '0') + '-' +
+                                      String(fechaOrden.getDate()).padStart(2, '0');
+                
+                return fechaOrdenStr === hoyStr;
             } catch (e) { return false; }
         });
-
-        console.log(`Órdenes del día activas para arqueo: ${ordenesHoyActivas.length}`);
 
         const numOrdenes = ordenesHoyActivas.length;
         let efectivo = 0, tarjeta = 0, yape = 0;
 
         ordenesHoyActivas.forEach(orden => {
             const total = orden.total || 0;
-            // Determinar método de pago (puede estar en Pedido o en entidad Pago anidada)
-            let metodo = (orden.pago?.metodo_Pago || orden.metodoPago || 'Efectivo').toLowerCase(); // Intentar leer de .pago primero
+            // Verificar donde está el método de pago
+            let metodo = (orden.pago?.metodo_Pago || orden.metodoPago || 'Efectivo').toLowerCase();
 
-            // Simplificar mapeo
             if (metodo.includes('tarjeta')) metodo = 'tarjeta';
             else if (metodo.includes('yape') || metodo.includes('plin')) metodo = 'yape';
-            else metodo = 'efectivo'; // Default
-
-            console.log(`Orden Arqueo: ${orden.id}, Total: ${total}, Método: ${metodo}`);
+            else metodo = 'efectivo';
 
             switch (metodo) {
                 case 'efectivo': efectivo += total; break;
                 case 'tarjeta': tarjeta += total; break;
                 case 'yape': yape += total; break;
-                default: efectivo += total; // Asignar a efectivo si no se reconoce
+                default: efectivo += total;
             }
         });
 
         const totalCaja = efectivo + tarjeta + yape;
-        console.log('Arqueo calculado:', { numOrdenes, efectivo, tarjeta, yape, totalCaja });
 
-        // Actualizar UI
         arqueNumOrdenesEl.textContent = numOrdenes;
         arqueEfectivoEl.textContent = `S/ ${efectivo.toFixed(2)}`;
         arqueTarjetaEl.textContent = `S/ ${tarjeta.toFixed(2)}`;
@@ -1008,10 +915,7 @@ document.addEventListener('DOMContentLoaded', () => {
         arqueTotalCajaEl.textContent = `S/ ${totalCaja.toFixed(2)}`;
     }
 
-    // ==========================================
-    // IMPRIMIR ARQUEO (Sin cambios funcionales)
-    // ==========================================
-    function imprimirArqueo() { // Hacer global si se llama desde HTML
+    function imprimirArqueo() {
         const vendedor = arqueVendedorEl.textContent;
         const fecha = arqueFechaEl.textContent;
         const numOrdenes = arqueNumOrdenesEl.textContent;
@@ -1040,23 +944,14 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="metodo-pago destacado"><span>💎 TOTAL CAJA:</span><span>${totalCaja}</span></div>
           </div>
           <div class="footer"> <p class="nota"> Documento generado el ${new Date().toLocaleString('es-ES')} </p> </div>
-          </div> <script>window.onload = function() { window.print(); window.onafterprint = function(){ window.close(); }; }</script> </body> </html>`); // Añadido autocierre
+          </div> <script>window.onload = function() { window.print(); window.onafterprint = function(){ window.close(); }; }</script> </body> </html>`);
         ventanaImpresion.document.close();
     };
-    // Hacer global si se llama desde HTML
     window.imprimirArqueo = imprimirArqueo;
 
-
-    // ==========================================
-    // NAVEGACIÓN (Sin cambios funcionales)
-    // ==========================================
-    function inicializarNavegacion() { /* ... (código igual que antes) ... */
+    function inicializarNavegacion() {
         const menuItems = document.querySelectorAll('.menu-item'); const sections = document.querySelectorAll('.pos-section'); const sidebar = document.getElementById('posSidebar'); const toggleBtn = document.getElementById('sidebarToggle'); if (!menuItems.length || !sections.length || !sidebar || !toggleBtn) return; menuItems.forEach(item => { item.addEventListener('click', (e) => { e.preventDefault(); const target = item.getAttribute('data-target'); menuItems.forEach(mi => mi.classList.remove('active')); sections.forEach(sec => sec.classList.remove('active')); item.classList.add('active'); const targetSection = document.getElementById(`section-${target}`); if (targetSection) targetSection.classList.add('active'); if (window.innerWidth <= 768) { sidebar.classList.remove('active'); } }); }); toggleBtn.addEventListener('click', () => { sidebar.classList.toggle('active'); }); document.addEventListener('click', (e) => { if (window.innerWidth <= 768) { const isClickInside = sidebar.contains(e.target) || toggleBtn.contains(e.target); if (!isClickInside && sidebar.classList.contains('active')) { sidebar.classList.remove('active'); } } });
     }
 
-    // ==========================================
-    // INICIAR APLICACIÓN
-    // ==========================================
     init();
-
 });

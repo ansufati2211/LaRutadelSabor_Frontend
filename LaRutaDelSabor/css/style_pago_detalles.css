@@ -7,7 +7,7 @@
 
 html {
     box-sizing: border-box !important;
-    font-size: 62.5%; /* 1rem = 10px */
+    font-size: 62.5%;
 }
 
 *, *:before, *:after {
@@ -210,22 +210,22 @@ input[type="radio"] + label {
 
 #step-3 {
     display: grid;
-    grid-template-columns: inherit; /* Hereda la cuadrícula 2fr 1fr de .contenedor */
-    grid-column: 1/3; /* Ocupa ambas columnas de la cuadrícula principal */
+    grid-template-columns: inherit; 
+    grid-column: 1/3; 
 }
 
 #step-3 .fila {
-    grid-column: 1/2; /* Coloca los campos del formulario en la columna izquierda */
-    margin-left: 0; /* Elimina el margen negativo para alinear correctamente */
+    grid-column: 1/2; 
+    margin-left: 0;
 }
 
 #step-3 .info-container {
-    grid-column: 2/3; /* Coloca el info-container en la columna derecha */
-    margin-top: 0; /* Alinea con los campos del formulario */
-    padding-left: 2rem; /* Agrega padding para espaciado */
+    grid-column: 2/3; 
+    margin-top: 0; 
+    padding-left: 2rem; 
     display: flex;
     flex-direction: column;
-    justify-content: space-between; /* Distribuye el contenido verticalmente */
+    justify-content: space-between; 
 }
 
 /* Totales */

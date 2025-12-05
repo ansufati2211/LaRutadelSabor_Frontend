@@ -483,7 +483,6 @@ function renderAuthButtons() {
         const nombreUsuario = user.nombre || user.email || 'Usuario'; // Intenta obtener nombre o email
         authButtons.innerHTML = `
             <div class="registro flex items-center">
-                <span class="text-yellow-400 text-sm font-medium mr-2">Hola, ${nombreUsuario}</span>
                 <a href="#" onclick="logout()" title="Cerrar Sesión" class="text-white hover:text-yellow-400 px-3 py-2 rounded-md text-sm font-medium">
                     <img src="Icon/cerrar-con-llave.png" alt="Cerrar Sesión" class="h-5 w-5 inline">
                 </a>

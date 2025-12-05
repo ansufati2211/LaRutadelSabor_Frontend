@@ -2,11 +2,12 @@
     --color-principal: #ffc640;
     --color-secundario: #ff7f00;
     --color-terciario: #c1440e;
+    --color-negro: #333;
 }
 
 html{
     box-sizing: border-box;
-    font-size: 62.5%; /*Importante*/
+    font-size: 62.5%;
 }
 
 *, *:before, *:after{
@@ -17,7 +18,7 @@ body{
     font-family: cursive;
     font-size: 1.6rem;
     line-height: 2;
-    margin: 0; /* Elimina márgenes del body */
+    margin: 0;
     background-color: #333;
 }
 
@@ -61,7 +62,7 @@ img{
 
 /* Header */
 .header{
-    position: sticky; /* Fija el header en la parte superior */
+    position: sticky; 
     top: 0; 
     left: 0;
     z-index: 1000;
@@ -177,12 +178,13 @@ img{
     padding: 5rem;
 }
 
-
-
 .entrada{
     margin-bottom: 2rem;
 }
 
+.entrada_contenido h4{
+  color: var(--color-secundario);
+}
 .informacion{
     list-style: none;
 }
@@ -190,6 +192,10 @@ img{
 .widget-informacion{
     border-bottom: 1px solid #333;
     margin-bottom: 2rem;
+}
+
+.informacion h4{
+  color: var(--color-secundario);
 }
 
 .widget-informacion:last-of-type{
@@ -273,6 +279,53 @@ footer {
         transform: scale(0);
         opacity: 0;
     }
+}
+
+.estadisticas-section {
+    background: linear-gradient(135deg, var(--color-principal) 0%, var(--color-secundario) 100%);
+    padding: 3rem 2rem;
+    margin: -1rem -2rem;
+    text-align: center;
+    height: 30rem;
+}
+
+.estadisticas-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 3rem;
+    max-width: 120rem;
+    margin: 0 auto;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 2rem;
+    border-radius: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.stat-number {
+    font-size: 4rem;
+    font-weight: bold;
+    color: var(--color-secundario);
+    margin: 1rem 0;
+}
+
+.stat-label {
+    font-size: 1.4rem;
+    color: #333;
+    font-weight: bold;
+}
+
+.stat-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
 }
 
 /* Clase que activamos con JS */
@@ -360,6 +413,7 @@ footer {
   }
 
   .entrada h4 {
+    color: var(--color-secundario);
     font-size: 2rem !important;
     text-align: center;
     margin-bottom: 1rem;
@@ -381,7 +435,7 @@ footer {
   }
 
   .widget-informacion {
-    border-bottom: 2px solid var(--color-secundario);
+    border-bottom: 2px solid #333;
     margin-bottom: 2rem;
     padding-bottom: 1.5rem;
   }
@@ -498,6 +552,34 @@ footer {
     width: 18px;
     height: 18px;
     object-fit: contain;
+  }
+
+  .estadisticas-section {
+    margin-bottom: 0.1rem;
+    padding: 0 auto;
+    height: 45rem;
+  }
+
+  .estadisticas-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    width: 37.5rem;
+  }
+
+  .stat-number {
+    font-size: 3rem;
+  }
+
+  .stat-card{
+    width: 18rem;
+  }
+
+  .stat-label {
+    font-size: 1.2rem;
+  }
+
+  .stat-icon {
+    font-size: 2.5rem;
   }
 }
 
@@ -618,4 +700,25 @@ footer {
     object-fit: contain;
   }
 
+   .estadisticas-section {
+    margin: -2rem -2rem 2rem -2rem;
+    padding: 3rem 1rem;
+  }
+
+  .estadisticas-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  .stat-number {
+    font-size: 3rem;
+  }
+
+  .stat-label {
+    font-size: 1.2rem;
+  }
+
+  .stat-icon {
+    font-size: 2.5rem;
+  }
 }

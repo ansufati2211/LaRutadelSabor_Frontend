@@ -236,6 +236,8 @@ img{
 
 .item {
   display: flex;
+  justify-content: space-between;
+  width: 100%;                    
   gap: 1.2rem;
   border-radius: 2rem;
   padding: 1rem;
@@ -281,6 +283,8 @@ img{
   border: none;
   width: 10rem;
   padding: 1rem;
+  margin-left: 0.7em ;
+  margin-top: 2rem;
   border-radius: 1rem;
   cursor: pointer;
   transition: background-color 0.2s;
