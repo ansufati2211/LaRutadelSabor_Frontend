@@ -271,37 +271,29 @@ document.addEventListener('DOMContentLoaded', () => {
         generateReportBtn.addEventListener('click', generateReport);
     }
 
-    /**
-     * MODIFICADO: Filtra órdenes usando `fecha_Pedido`.
+/**
+     * MODIFICADO: Filtra órdenes usando `fechaPedido`.
      */
     function getFilteredOrders() {
-        // Empezar con todas las órdenes cargadas
         let filtered = orders || [];
 
-        // Filtrar por anulados (opcional, por defecto mostrar todos a admin)
-        // filtered = filtered.filter(order => !order.audAnulado);
-
-        // Filtrar por fecha si hay rango seleccionado
         if (selectedStartDate && selectedEndDate) {
             try {
-                // Convertir límites a objetos Date (solo parte fecha)
                 const start = new Date(selectedStartDate + 'T00:00:00');
-                const end = new Date(selectedEndDate + 'T23:59:59'); // Incluir todo el día final
+                const end = new Date(selectedEndDate + 'T23:59:59');
 
                 if (isNaN(start) || isNaN(end)) {
                     console.error("Fechas de filtro inválidas");
-                    return filtered; // Devuelve sin filtrar por fecha si son inválidas
+                    return filtered; 
                 }
 
-
                 filtered = filtered.filter(order => {
-                    // Convertir fecha del pedido a objeto Date
-                    const orderDate = new Date(order.fecha_Pedido); // Usar fecha_Pedido
+                    // CAMBIO AQUÍ: fecha_Pedido -> fechaPedido
+                    const orderDate = new Date(order.fechaPedido); // <--- CORREGIDO
                     return !isNaN(orderDate) && orderDate >= start && orderDate <= end;
                 });
             } catch (e) {
                 console.error("Error al filtrar fechas:", e);
-                // Devolver sin filtrar por fecha si hay error
             }
         }
         return filtered;
@@ -402,8 +394,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 tr.title = "Esta orden está anulada";
             }
 
+   
+
             // Formatear fecha
-            const formattedDate = new Date(order.fecha_Pedido).toLocaleString('es-PE', { // Usar fecha_Pedido
+            // CAMBIO AQUÍ: fecha_Pedido -> fechaPedido
+            const formattedDate = new Date(order.fechaPedido).toLocaleString('es-PE', { // <--- CORREGIDO
                 dateStyle: 'short', timeStyle: 'short'
             });
 
@@ -519,28 +514,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    /**
-     * MODIFICADO: Agrega datos de ventas por día usando `fecha_Pedido`.
-     */
-    function aggregateDailySales() {
+function aggregateDailySales() {
         const filteredOrders = getFilteredOrders();
         const dailySales = {};
 
         filteredOrders.forEach(order => {
-            // Solo contar órdenes no anuladas para ventas
             if (order.audAnulado) return;
 
             try {
-                // Usar fecha_Pedido
-                const date = new Date(order.fecha_Pedido);
-                // Formato 'YYYY-MM-DD' para ordenar correctamente como string
+                // CAMBIO AQUÍ: fecha_Pedido -> fechaPedido
+                const date = new Date(order.fechaPedido); // <--- CORREGIDO
                 const dayKey = date.toISOString().split('T')[0];
                 dailySales[dayKey] = (dailySales[dayKey] || 0) + (order.total || 0);
             } catch (e) {
-                console.warn("Fecha inválida en orden:", order.id, order.fecha_Pedido);
+                console.warn("Fecha inválida en orden:", order.id, order.fechaPedido);
             }
         });
-
+        
+        // ... resto de la función ...
         // Ordenar por fecha (YYYY-MM-DD se ordena alfabéticamente)
         const sortedDates = Object.keys(dailySales).sort();
 
@@ -655,14 +646,16 @@ document.addEventListener('DOMContentLoaded', () => {
         subtotalRow.innerHTML = `<td colspan="3" class="text-end"><strong>Subtotal Productos:</strong></td><td class="text-end"><strong>S/ ${calculatedSubtotal.toFixed(2)}</strong></td>`;
         orderDetailsTableFoot.appendChild(subtotalRow);
 
+// ... dentro de showOrderDetails ...
 
         // Mostrar costo de envío si existe
-        if (order.monto_Agregado !== undefined && order.monto_Agregado > 0) {
+        // CAMBIO AQUÍ: monto_Agregado -> montoAgregado
+        if (order.montoAgregado !== undefined && order.montoAgregado > 0) { // <--- CORREGIDO
             const deliveryRow = document.createElement('tr');
             deliveryRow.innerHTML = `
                 <td colspan="3" class="text-end">Costo de Envío:</td>
-                <td class="text-end">S/ ${order.monto_Agregado.toFixed(2)}</td>
-            `;
+                <td class="text-end">S/ ${order.montoAgregado.toFixed(2)}</td> 
+            `; // <--- CORREGIDO TAMBIÉN EN EL HTML STRING
             orderDetailsTableFoot.appendChild(deliveryRow);
         }
 
