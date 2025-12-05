@@ -435,7 +435,7 @@ function renderAuthButtons() {
             </div>
             <div class="carrito">
                 <a href="carrito.html" class="text-white hover:text-yellow-400 px-3 py-2 rounded-md text-sm font-medium">
-                    <img src="Icon/carrito-de-compras.png" alt="Carrito" class="h-5 w-5 inline">
+                    <img src="icon/carrito-de-compras.png" alt="Carrito" class="h-5 w-5 inline">
                 </a>
             </div>
         `;
@@ -454,7 +454,7 @@ function renderAuthButtons() {
             </div>
             <div class="carrito">
                 <a href="carrito.html" class="text-white hover:text-yellow-400 px-3 py-2 rounded-md text-sm font-medium">
-                    <img src="Icon/carrito-de-compras.png" alt="Carrito" class="h-5 w-5 inline">
+                    <img src="icon/carrito-de-compras.png" alt="Carrito" class="h-5 w-5 inline">
                 </a>
             </div>
         `;
@@ -473,7 +473,7 @@ function renderAuthButtons() {
             </div>
             <div class="carrito">
                 <a href="carrito.html" class="text-white hover:text-yellow-400 px-3 py-2 rounded-md text-sm font-medium">
-                    <img src="Icon/carrito-de-compras.png" alt="Carrito" class="h-5 w-5 inline">
+                    <img src="icon/carrito-de-compras.png" alt="Carrito" class="h-5 w-5 inline">
                 </a>
             </div>
         `;
@@ -484,12 +484,12 @@ function renderAuthButtons() {
         authButtons.innerHTML = `
             <div class="registro flex items-center">
                 <a href="#" onclick="logout()" title="Cerrar Sesión" class="text-white hover:text-yellow-400 px-3 py-2 rounded-md text-sm font-medium">
-                    <img src="Icon/cerrar-con-llave.png" alt="Cerrar Sesión" class="h-5 w-5 inline">
+                    <img src="icon/cerrar-con-llave.png" alt="Cerrar Sesión" class="h-5 w-5 inline">
                 </a>
             </div>
             <div class="carrito">
                 <a href="carrito.html" title="Carrito de Compras" class="text-white hover:text-yellow-400 px-3 py-2 rounded-md text-sm font-medium">
-                    <img src="Icon/carrito-de-compras.png" alt="Carrito" class="h-5 w-5 inline">
+                    <img src="icon/carrito-de-compras.png" alt="Carrito" class="h-5 w-5 inline">
                 </a>
             </div>
         `;
@@ -498,12 +498,12 @@ function renderAuthButtons() {
         authButtons.innerHTML = `
             <div class="registro">
                 <a href="login.html" title="Iniciar Sesión / Registrarse" class="text-white hover:text-yellow-400 px-3 py-2 rounded-md text-sm font-medium">
-                    <img src="Icon/iniciar_sesion.png" alt="Iniciar Sesión" class="h-5 w-5 inline">
+                    <img src="icon/iniciar_sesion.png" alt="Iniciar Sesión" class="h-5 w-5 inline">
                 </a>
             </div>
             <div class="carrito">
                 <a href="carrito.html" title="Carrito de Compras" class="text-white hover:text-yellow-400 px-3 py-2 rounded-md text-sm font-medium">
-                    <img src="Icon/carrito-de-compras.png" alt="Carrito" class="h-5 w-5 inline">
+                    <img src="icon/carrito-de-compras.png" alt="Carrito" class="h-5 w-5 inline">
                 </a>
             </div>
         `;

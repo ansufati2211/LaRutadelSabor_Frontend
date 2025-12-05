@@ -106,7 +106,7 @@ function renderAuthButtons() {
     const cartIconHtml = `
         <div class="carrito relative"> 
             <a href="carrito.html" title="Carrito de Compras" class="text-white hover:text-yellow-400 px-3 py-2 rounded-md text-sm font-medium">
-                <img src="Icon/carrito-de-compras.png" alt="Carrito" class="h-5 w-5 inline">
+                <img src="icon/carrito-de-compras.png" alt="Carrito" class="h-5 w-5 inline">
                 <span id="cart-item-count" 
                       class="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center" 
                       style="display: none;">0</span>
@@ -161,7 +161,7 @@ function renderAuthButtons() {
         authButtons.innerHTML = `
             <div class="registro flex items-center">
                 <a href="#" onclick="logout()" title="Cerrar Sesión" class="text-white hover:text-yellow-400 px-3 py-2 rounded-md text-sm font-medium">
-                    <img src="Icon/cerrar-con-llave.png" alt="Cerrar Sesión" class="h-5 w-5 inline">
+                    <img src="icon/cerrar-con-llave.png" alt="Cerrar Sesión" class="h-5 w-5 inline">
                 </a>
             </div>
             ${cartIconHtml}
@@ -170,7 +170,7 @@ function renderAuthButtons() {
         authButtons.innerHTML = `
             <div class="registro">
                 <a href="login.html" title="Iniciar Sesión / Registrarse" class="text-white hover:text-yellow-400 px-3 py-2 rounded-md text-sm font-medium">
-                    <img src="Icon/iniciar_sesion.png" alt="Iniciar Sesión" class="h-5 w-5 inline">
+                    <img src="icon/iniciar_sesion.png" alt="Iniciar Sesión" class="h-5 w-5 inline">
                 </a>
             </div>
             ${cartIconHtml}
